@@ -23,7 +23,8 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const { items, clearCart, total } = useCart();
+  const { items, clearCart, getTotal } = useCart();
+  const total = getTotal();
   const createOrder = useCreateOrder();
   const [, setLocation] = useLocation();
 

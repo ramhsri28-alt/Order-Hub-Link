@@ -1,20 +1,21 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, LogOut, UtensilsCrossed, Settings, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { cn } from "@/lib/utils";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
-  const { user, logout } = useAuth();
-
-  if (!user) return null;
+  const [location, setLocation] = useLocation();
+  const { username, logout } = useAdminAuth();
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Live Orders", href: "/admin" },
-    { icon: Menu, label: "Menu Management", href: "/admin/menu" }, // Placeholder for future feature
-    { icon: Settings, label: "Settings", href: "/admin/settings" }, // Placeholder
   ];
+
+  const handleLogout = () => {
+    logout();
+    setLocation("/admin/login");
+  };
 
   return (
     <div className="min-h-screen bg-muted/20 flex">
@@ -55,17 +56,18 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t bg-muted/10">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-              {user.username.charAt(0).toUpperCase()}
+              {username?.charAt(0).toUpperCase() || "A"}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium truncate">{user.name || user.username}</p>
-              <p className="text-xs text-muted-foreground truncate">Admin</p>
+              <p className="text-sm font-medium truncate">{username || "Admin"}</p>
+              <p className="text-xs text-muted-foreground truncate">Restaurant Admin</p>
             </div>
           </div>
           <Button 
             variant="outline" 
             className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/30"
-            onClick={() => logout()}
+            onClick={handleLogout}
+            data-testid="button-logout"
           >
             <LogOut className="w-4 h-4" />
             Sign Out
@@ -77,7 +79,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 lg:ml-64 min-w-0">
         <header className="h-16 bg-card border-b flex items-center justify-between px-4 lg:hidden sticky top-0 z-10">
           <span className="font-display font-bold text-lg">BistroAdmin</span>
-          <Button size="sm" variant="ghost" onClick={() => logout()}>
+          <Button size="sm" variant="ghost" onClick={handleLogout}>
             <LogOut className="w-4 h-4" />
           </Button>
         </header>

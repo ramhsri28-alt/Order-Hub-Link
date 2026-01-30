@@ -17,7 +17,8 @@ import { CheckoutDialog } from "./checkout-dialog";
 import { formatCurrency } from "@/lib/utils";
 
 export function CartDrawer({ children }: { children: React.ReactNode }) {
-  const { items, updateQuantity, removeItem, total } = useCart();
+  const { items, updateQuantity, removeItem, getTotal } = useCart();
+  const total = getTotal();
   const [open, setOpen] = useState(false);
 
   return (

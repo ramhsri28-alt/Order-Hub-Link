@@ -5,7 +5,7 @@ import { CartDrawer } from "@/components/cart-drawer";
 import { useCart } from "@/hooks/use-cart";
 
 export function CustomerLayout({ children }: { children: React.ReactNode }) {
-  const cartCount = useCart((state) => state.count);
+  const cartCount = useCart((state) => state.getCount());
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
