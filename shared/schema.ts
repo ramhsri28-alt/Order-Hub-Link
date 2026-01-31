@@ -23,8 +23,11 @@ export const orders = pgTable("orders", {
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email"),
   customerPhone: text("customer_phone").notNull(),
+  deliveryAddress: text("delivery_address"),
+  landmark: text("landmark"),
+  bonusPoints: integer("bonus_points").default(0).notNull(), // Bonus points earned for this order
   status: text("status").notNull().default("pending"), // pending, preparing, ready, delivered, cancelled
-  totalAmount: integer("total_amount").notNull(), // In cents
+  totalAmount: integer("total_amount").notNull(), // In paisa (Nepali currency)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -78,6 +81,8 @@ export type CreateOrderRequest = {
   customerName: string;
   customerEmail?: string;
   customerPhone: string;
+  deliveryAddress?: string;
+  landmark?: string;
   items: {
     menuItemId: number;
     quantity: number;

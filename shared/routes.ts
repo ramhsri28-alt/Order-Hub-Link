@@ -53,6 +53,8 @@ export const api = {
         customerName: z.string().min(1, "Name is required"),
         customerEmail: z.string().email().optional().or(z.literal("")),
         customerPhone: z.string().min(10, "Phone number is required"),
+        deliveryAddress: z.string().optional(),
+        landmark: z.string().optional(),
         items: z.array(z.object({
           menuItemId: z.number(),
           quantity: z.number().min(1),

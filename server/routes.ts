@@ -4,7 +4,6 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
-import { sendWhatsAppNotification } from "./whatsapp";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -40,9 +39,6 @@ export async function registerRoutes(
     try {
       const input = api.orders.create.input.parse(req.body);
       const order = await storage.createOrder(input);
-      
-      // Send WhatsApp notification
-      sendWhatsAppNotification(order);
       
       res.status(201).json(order);
     } catch (err) {
@@ -86,38 +82,130 @@ export async function registerRoutes(
 async function seedDatabase() {
   const existingItems = await storage.getMenuItems();
   if (existingItems.length === 0) {
-    console.log("Seeding database...");
+    console.log("Seeding database with Nepali dishes...");
     const menuItems = [
+      // Starters
       {
-        name: "Classic Burger",
-        description: "Juicy beef patty with lettuce, tomato, and secret sauce.",
-        price: 1299,
-        category: "Mains",
-        imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80",
-        available: true
-      },
-      {
-        name: "Margherita Pizza",
-        description: "Fresh basil, mozzarella, and san marzano tomato sauce.",
-        price: 1499,
-        category: "Mains",
-        imageUrl: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80",
-        available: true
-      },
-      {
-        name: "Caesar Salad",
-        description: "Crisp romaine, parmesan cheese, croutons, and caesar dressing.",
-        price: 899,
+        name: "Momo (Steamed)",
+        description: "Traditional Nepali steamed dumplings filled with spiced chicken.",
+        price: 25000, // Rs. 250
         category: "Starters",
-        imageUrl: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?auto=format&fit=crop&w=800&q=80",
+        imageUrl: "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=800&q=80",
         available: true
       },
       {
-        name: "Tiramisu",
-        description: "Classic Italian dessert with coffee-soaked ladyfingers.",
-        price: 699,
+        name: "Fried Momo",
+        description: "Crispy fried dumplings served with spicy achar.",
+        price: 28000, // Rs. 280
+        category: "Starters",
+        imageUrl: "https://images.unsplash.com/photo-1626776877039-31c7aee25804?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Chowmein",
+        description: "Stir-fried noodles with vegetables and choice of meat.",
+        price: 20000, // Rs. 200
+        category: "Starters",
+        imageUrl: "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Spring Rolls",
+        description: "Crispy vegetable rolls with sweet chili sauce.",
+        price: 18000, // Rs. 180
+        category: "Starters",
+        imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      // Mains
+      {
+        name: "Dal Bhat Set",
+        description: "Traditional Nepali meal with dal, rice, vegetables, and pickle.",
+        price: 35000, // Rs. 350
+        category: "Mains",
+        imageUrl: "https://images.unsplash.com/photo-1596797038530-2c107229654b?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Chicken Biryani",
+        description: "Aromatic basmati rice cooked with tender chicken and spices.",
+        price: 40000, // Rs. 400
+        category: "Mains",
+        imageUrl: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Butter Chicken",
+        description: "Creamy tomato-based curry with tender chicken pieces.",
+        price: 45000, // Rs. 450
+        category: "Mains",
+        imageUrl: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Sekuwa",
+        description: "Nepali-style grilled meat with traditional spices.",
+        price: 50000, // Rs. 500
+        category: "Mains",
+        imageUrl: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Thukpa",
+        description: "Tibetan noodle soup with vegetables and meat.",
+        price: 22000, // Rs. 220
+        category: "Mains",
+        imageUrl: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      // Drinks
+      {
+        name: "Masala Tea",
+        description: "Traditional spiced milk tea.",
+        price: 5000, // Rs. 50
+        category: "Drinks",
+        imageUrl: "https://images.unsplash.com/photo-1571934811356-5cc061b6821f?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Lassi",
+        description: "Refreshing yogurt-based drink, sweet or salty.",
+        price: 8000, // Rs. 80
+        category: "Drinks",
+        imageUrl: "https://images.unsplash.com/photo-1626204174671-ab34d800e28e?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Fresh Lime Soda",
+        description: "Refreshing lime juice with soda water.",
+        price: 6000, // Rs. 60
+        category: "Drinks",
+        imageUrl: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      // Desserts
+      {
+        name: "Juju Dhau",
+        description: "Famous Bhaktapur king curd, creamy and sweet.",
+        price: 12000, // Rs. 120
         category: "Desserts",
-        imageUrl: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=800&q=80",
+        imageUrl: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Gulab Jamun",
+        description: "Soft milk dumplings soaked in sweet syrup.",
+        price: 10000, // Rs. 100
+        category: "Desserts",
+        imageUrl: "https://images.unsplash.com/photo-1601303516527-d5a66de44e74?auto=format&fit=crop&w=800&q=80",
+        available: true
+      },
+      {
+        name: "Kheer",
+        description: "Creamy rice pudding with cardamom and nuts.",
+        price: 8000, // Rs. 80
+        category: "Desserts",
+        imageUrl: "https://images.unsplash.com/photo-1517244683847-7456b63c5969?auto=format&fit=crop&w=800&q=80",
         available: true
       }
     ];

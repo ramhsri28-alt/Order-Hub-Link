@@ -6,8 +6,5 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount / 100);
+  return `Rs. ${new Intl.NumberFormat("en-NP").format(Math.round(amount / 100))}`;
 }

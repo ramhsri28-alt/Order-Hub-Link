@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { UtensilsCrossed, User, LogOut } from "lucide-react";
+import { UtensilsCrossed, User, LogOut, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CartDrawer } from "@/components/cart-drawer";
 import { useCart } from "@/hooks/use-cart";
@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -40,6 +41,13 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <Link href="/orders">
+                    <DropdownMenuItem className="cursor-pointer" data-testid="link-my-orders">
+                      <Package className="w-4 h-4 mr-2" />
+                      My Orders
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="cursor-pointer" data-testid="button-customer-logout">
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out

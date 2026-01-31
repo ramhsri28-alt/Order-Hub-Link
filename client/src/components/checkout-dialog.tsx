@@ -9,11 +9,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { useCart } from "@/hooks/use-cart";
 import { useCreateOrder } from "@/hooks/use-orders";
 import { useCustomerAuth } from "@/hooks/use-customer-auth";
-import { Loader2, Phone, Mail, User } from "lucide-react";
+import { Loader2, Phone, Mail, User, MapPin, Navigation, Gift } from "lucide-react";
 import { useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
 
@@ -25,11 +26,16 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [landmark, setLandmark] = useState("");
   const { items, clearCart, getTotal } = useCart();
   const total = getTotal();
   const createOrder = useCreateOrder();
   const [, setLocation] = useLocation();
   const { isAuthenticated, customerName, customerEmail } = useCustomerAuth();
+
+  // Calculate bonus points (1 point per Rs. 100)
+  const bonusPoints = Math.floor((total * 1.1) / 10000);
 
   useEffect(() => {
     if (customerEmail) {
@@ -45,10 +51,12 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
     }
     
     try {
-      const order = await createOrder.mutateAsync({
+      await createOrder.mutateAsync({
         customerName: customerName,
         customerEmail: email || undefined,
         customerPhone: phone,
+        deliveryAddress: address || undefined,
+        landmark: landmark || undefined,
         items: items.map(item => ({
           menuItemId: item.id,
           quantity: item.quantity
@@ -58,18 +66,7 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
       clearCart();
       setOpen(false);
       onClose();
-      
-      // Open WhatsApp with order notification
-      const itemsList = items.map(item => `${item.quantity}x ${item.name}`).join(', ');
-      const message = encodeURIComponent(
-        `New Order Placed!\n\n` +
-        `Order: ${order.orderNumber}\n` +
-        `Customer: ${customerName}\n` +
-        `Phone: ${phone}\n` +
-        `Items: ${itemsList}\n` +
-        `Total: ${formatCurrency(total * 1.1)}`
-      );
-      window.open(`https://wa.me/9779805190408?text=${message}`, '_blank');
+      setLocation("/orders");
       
     } catch (error) {
       console.error(error);
@@ -83,14 +80,14 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
           Checkout Now
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Complete Order</DialogTitle>
           <DialogDescription>
-            Confirm your details to place the order
+            Enter your delivery details to place the order
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+        <form onSubmit={handleSubmit} className="space-y-5 mt-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
             <div className="relative">
@@ -103,6 +100,7 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
               />
             </div>
           </div>
+          
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number *</Label>
             <div className="relative">
@@ -119,6 +117,37 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
               />
             </div>
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="address">Delivery Address</Label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Textarea
+                id="address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Enter your full delivery address"
+                className="pl-10 min-h-[80px]"
+                data-testid="input-address"
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="landmark">Landmark (Optional)</Label>
+            <div className="relative">
+              <Navigation className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="landmark"
+                value={landmark}
+                onChange={(e) => setLandmark(e.target.value)}
+                placeholder="Near hospital, temple, etc."
+                className="pl-10"
+                data-testid="input-landmark"
+              />
+            </div>
+          </div>
+          
           <div className="space-y-2">
             <Label htmlFor="email">Email (Optional)</Label>
             <div className="relative">
@@ -134,6 +163,20 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
               />
             </div>
           </div>
+
+          {/* Bonus Points Preview */}
+          {bonusPoints > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+              <Gift className="w-5 h-5 text-amber-600" />
+              <div>
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  You'll earn {bonusPoints} bonus points!
+                </p>
+                <p className="text-xs text-amber-600/80">Earn 1 point for every Rs. 100 spent</p>
+              </div>
+            </div>
+          )}
+          
           <Button 
             type="submit" 
             className="w-full py-6 font-semibold text-lg" 
@@ -146,7 +189,7 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
                 Processing...
               </>
             ) : (
-              `Pay ${formatCurrency(total * 1.1)}`
+              `Place Order - ${formatCurrency(total * 1.1)}`
             )}
           </Button>
         </form>

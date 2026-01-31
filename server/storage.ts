@@ -98,17 +98,23 @@ export class DatabaseStorage implements IStorage {
         });
       }
 
-      // 2. Create Order
+      // 2. Calculate bonus points (1 point per 100 rupees spent)
+      const bonusPoints = Math.floor(totalAmount / 10000);
+
+      // 3. Create Order
       const [newOrder] = await tx.insert(orders).values({
         orderNumber: generateOrderNumber(),
         customerName: request.customerName,
         customerEmail: request.customerEmail,
         customerPhone: request.customerPhone,
+        deliveryAddress: request.deliveryAddress,
+        landmark: request.landmark,
+        bonusPoints,
         totalAmount,
         status: "pending"
       }).returning();
 
-      // 3. Create Order Items
+      // 4. Create Order Items
       for (const itemData of orderItemsData) {
         await tx.insert(orderItems).values({
           orderId: newOrder.id,
@@ -116,7 +122,7 @@ export class DatabaseStorage implements IStorage {
         });
       }
 
-      // 4. Return complete order
+      // 5. Return complete order
       const completeOrder = await tx.query.orders.findFirst({
         where: eq(orders.id, newOrder.id),
         with: {
