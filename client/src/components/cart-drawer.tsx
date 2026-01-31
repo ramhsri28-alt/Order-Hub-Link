@@ -9,15 +9,18 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
-import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { useCustomerAuth } from "@/hooks/use-customer-auth";
+import { Minus, Plus, ShoppingBag, Trash2, LogIn } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
 import { CheckoutDialog } from "./checkout-dialog";
 import { formatCurrency } from "@/lib/utils";
+import { Link } from "wouter";
 
 export function CartDrawer({ children }: { children: React.ReactNode }) {
   const { items, updateQuantity, removeItem, getTotal } = useCart();
+  const { isAuthenticated } = useCustomerAuth();
   const total = getTotal();
   const [open, setOpen] = useState(false);
 
@@ -120,7 +123,20 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <SheetFooter>
-              <CheckoutDialog onClose={() => setOpen(false)} />
+              {isAuthenticated ? (
+                <CheckoutDialog onClose={() => setOpen(false)} />
+              ) : (
+                <Link href="/login" className="w-full">
+                  <Button 
+                    className="w-full py-6 text-lg font-semibold gap-2" 
+                    onClick={() => setOpen(false)}
+                    data-testid="button-login-to-checkout"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    Sign In to Checkout
+                  </Button>
+                </Link>
+              )}
             </SheetFooter>
           </div>
         )}

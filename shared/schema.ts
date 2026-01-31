@@ -19,8 +19,10 @@ export const menuItems = pgTable("menu_items", {
 
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
+  orderNumber: text("order_number").notNull(), // Human-readable order number like ORD-001
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email"),
+  customerPhone: text("customer_phone").notNull(),
   status: text("status").notNull().default("pending"), // pending, preparing, ready, delivered, cancelled
   totalAmount: integer("total_amount").notNull(), // In cents
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -75,6 +77,7 @@ export type OrderWithItems = Order & {
 export type CreateOrderRequest = {
   customerName: string;
   customerEmail?: string;
+  customerPhone: string;
   items: {
     menuItemId: number;
     quantity: number;

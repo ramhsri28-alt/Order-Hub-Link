@@ -9,7 +9,14 @@ import {
   type OrderWithItems,
   type OrderStatus
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
+
+function generateOrderNumber(): string {
+  const date = new Date();
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `ORD-${dateStr}-${random}`;
+}
 
 export interface IStorage {
   // Menu
@@ -93,8 +100,10 @@ export class DatabaseStorage implements IStorage {
 
       // 2. Create Order
       const [newOrder] = await tx.insert(orders).values({
+        orderNumber: generateOrderNumber(),
         customerName: request.customerName,
         customerEmail: request.customerEmail,
+        customerPhone: request.customerPhone,
         totalAmount,
         status: "pending"
       }).returning();

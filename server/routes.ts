@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { sendWhatsAppNotification } from "./whatsapp";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -39,6 +40,10 @@ export async function registerRoutes(
     try {
       const input = api.orders.create.input.parse(req.body);
       const order = await storage.createOrder(input);
+      
+      // Send WhatsApp notification
+      sendWhatsAppNotification(order);
+      
       res.status(201).json(order);
     } catch (err) {
       if (err instanceof z.ZodError) {

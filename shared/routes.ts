@@ -52,6 +52,7 @@ export const api = {
       input: z.object({
         customerName: z.string().min(1, "Name is required"),
         customerEmail: z.string().email().optional().or(z.literal("")),
+        customerPhone: z.string().min(10, "Phone number is required"),
         items: z.array(z.object({
           menuItemId: z.number(),
           quantity: z.number().min(1),
