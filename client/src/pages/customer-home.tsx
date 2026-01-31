@@ -4,9 +4,10 @@ import { useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Phone, Clock, MapPin } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { GoogleMap } from "@/components/google-map";
 
 export default function CustomerHome() {
   const { data: menu, isLoading, error } = useMenu();
@@ -139,6 +140,77 @@ export default function CustomerHome() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact & Location Section */}
+      <section className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12 space-y-4">
+            <h2 className="text-4xl md:text-5xl font-display font-bold text-foreground">Visit Us</h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Find us at our location or give us a call to reserve your table.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            <GoogleMap 
+              lat={27.7172} 
+              lng={85.3240} 
+              address="BistroSync Restaurant, Kathmandu, Nepal" 
+            />
+            
+            <div className="space-y-6">
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Phone className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-1">Call Us</h3>
+                    <p className="text-muted-foreground mb-2">For reservations and takeout orders</p>
+                    <a 
+                      href="tel:+9779805190408" 
+                      className="text-primary font-mono text-lg hover:underline"
+                      data-testid="link-phone"
+                    >
+                      +977 9805190408
+                    </a>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Clock className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-1">Opening Hours</h3>
+                    <div className="text-muted-foreground space-y-1">
+                      <p>Monday - Friday: 10:00 AM - 10:00 PM</p>
+                      <p>Saturday - Sunday: 9:00 AM - 11:00 PM</p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <MapPin className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-1">Address</h3>
+                    <p className="text-muted-foreground">
+                      BistroSync Restaurant<br />
+                      Kathmandu, Nepal
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         </div>
       </section>
