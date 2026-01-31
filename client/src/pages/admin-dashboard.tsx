@@ -15,7 +15,10 @@ import {
   DollarSign,
   TrendingUp,
   Phone,
-  Calendar
+  Calendar,
+  MapPin,
+  Navigation,
+  ExternalLink
 } from "lucide-react";
 import { formatDistanceToNow, isToday, isThisMonth, startOfDay, startOfMonth, format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
@@ -82,6 +85,18 @@ function OrderCard({ order }: { order: OrderWithItems }) {
                 {order.customerPhone}
               </p>
             )}
+            {order.deliveryAddress && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                <MapPin className="w-3 h-3" />
+                {order.deliveryAddress}
+              </p>
+            )}
+            {order.landmark && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                <Navigation className="w-3 h-3" />
+                {order.landmark}
+              </p>
+            )}
           </div>
           <div className="text-right">
             <span className="block font-mono font-bold text-lg">
@@ -94,7 +109,7 @@ function OrderCard({ order }: { order: OrderWithItems }) {
         </div>
       </CardHeader>
       <CardContent className="pt-4">
-        <ul className="space-y-2 mb-6">
+        <ul className="space-y-2 mb-4">
           {order.items.map((item) => (
             <li key={item.id} className="flex justify-between text-sm">
               <div className="flex gap-2">
@@ -111,6 +126,20 @@ function OrderCard({ order }: { order: OrderWithItems }) {
             </li>
           ))}
         </ul>
+        
+        {order.latitude && order.longitude && (
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude},${order.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-3 mb-4 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+            data-testid="link-directions"
+          >
+            <MapPin className="w-4 h-4" />
+            <span className="font-medium">Get Directions</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
         
         {config.next && (
           <Button 

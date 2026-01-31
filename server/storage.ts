@@ -109,6 +109,8 @@ export class DatabaseStorage implements IStorage {
         customerPhone: request.customerPhone,
         deliveryAddress: request.deliveryAddress,
         landmark: request.landmark,
+        latitude: request.latitude,
+        longitude: request.longitude,
         bonusPoints,
         totalAmount,
         status: "pending"

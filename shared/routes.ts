@@ -55,6 +55,8 @@ export const api = {
         customerPhone: z.string().min(10, "Phone number is required"),
         deliveryAddress: z.string().optional(),
         landmark: z.string().optional(),
+        latitude: z.string().optional(),
+        longitude: z.string().optional(),
         items: z.array(z.object({
           menuItemId: z.number(),
           quantity: z.number().min(1),

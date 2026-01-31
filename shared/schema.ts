@@ -25,6 +25,8 @@ export const orders = pgTable("orders", {
   customerPhone: text("customer_phone").notNull(),
   deliveryAddress: text("delivery_address"),
   landmark: text("landmark"),
+  latitude: text("latitude"), // GPS latitude for map pin
+  longitude: text("longitude"), // GPS longitude for map pin
   bonusPoints: integer("bonus_points").default(0).notNull(), // Bonus points earned for this order
   status: text("status").notNull().default("pending"), // pending, preparing, ready, delivered, cancelled
   totalAmount: integer("total_amount").notNull(), // In paisa (Nepali currency)
@@ -83,6 +85,8 @@ export type CreateOrderRequest = {
   customerPhone: string;
   deliveryAddress?: string;
   landmark?: string;
+  latitude?: string;
+  longitude?: string;
   items: {
     menuItemId: number;
     quantity: number;

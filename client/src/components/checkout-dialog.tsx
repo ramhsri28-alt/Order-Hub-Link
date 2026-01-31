@@ -17,6 +17,7 @@ import { useCustomerAuth } from "@/hooks/use-customer-auth";
 import { Loader2, Phone, Mail, User, MapPin, Navigation, Gift } from "lucide-react";
 import { useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
+import { LocationPicker } from "./location-picker";
 
 interface CheckoutDialogProps {
   onClose: () => void;
@@ -28,6 +29,8 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [landmark, setLandmark] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const { items, clearCart, getTotal } = useCart();
   const total = getTotal();
   const createOrder = useCreateOrder();
@@ -43,6 +46,11 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
     }
   }, [customerEmail]);
 
+  const handleLocationChange = (lat: string, lng: string) => {
+    setLatitude(lat);
+    setLongitude(lng);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -57,6 +65,8 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
         customerPhone: phone,
         deliveryAddress: address || undefined,
         landmark: landmark || undefined,
+        latitude: latitude || undefined,
+        longitude: longitude || undefined,
         items: items.map(item => ({
           menuItemId: item.id,
           quantity: item.quantity
@@ -80,7 +90,7 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
           Checkout Now
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Complete Order</DialogTitle>
           <DialogDescription>
@@ -146,6 +156,15 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
                 data-testid="input-landmark"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Pin Your Location</Label>
+            <LocationPicker 
+              latitude={latitude}
+              longitude={longitude}
+              onLocationChange={handleLocationChange}
+            />
           </div>
           
           <div className="space-y-2">
