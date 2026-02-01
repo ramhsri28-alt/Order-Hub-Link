@@ -11,9 +11,10 @@ export const menuItems = pgTable("menu_items", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  price: integer("price").notNull(), // In cents
+  price: integer("price").notNull(), // In paisa
   imageUrl: text("image_url").notNull(),
   category: text("category").notNull(),
+  discount: integer("discount").default(0).notNull(), // Discount percentage (0-100)
   available: boolean("available").default(true).notNull(),
 });
 

@@ -110,6 +110,11 @@ export default function CustomerHome() {
                             alt={item.name}
                             className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                           />
+                          {item.discount > 0 && (
+                            <Badge className="absolute top-3 right-3 z-20 bg-red-500 text-white">
+                              {item.discount}% OFF
+                            </Badge>
+                          )}
                           {!item.available && (
                             <div className="absolute inset-0 z-20 bg-background/80 flex items-center justify-center">
                               <Badge variant="destructive" className="text-lg py-2 px-4">Sold Out</Badge>
@@ -119,9 +124,22 @@ export default function CustomerHome() {
                         <CardContent className="p-6">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-display font-bold text-xl text-foreground">{item.name}</h4>
-                            <span className="font-mono font-semibold text-primary text-lg">
-                              {formatCurrency(item.price)}
-                            </span>
+                            <div className="text-right">
+                              {item.discount > 0 ? (
+                                <>
+                                  <span className="text-sm line-through text-muted-foreground block">
+                                    {formatCurrency(item.price)}
+                                  </span>
+                                  <span className="font-mono font-semibold text-green-600 text-lg">
+                                    {formatCurrency(item.price * (1 - item.discount / 100))}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="font-mono font-semibold text-primary text-lg">
+                                  {formatCurrency(item.price)}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <p className="text-muted-foreground text-sm leading-relaxed mb-6 line-clamp-2">
                             {item.description}

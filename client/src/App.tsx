@@ -11,6 +11,7 @@ import CustomerHome from "@/pages/customer-home";
 import CustomerLogin from "@/pages/customer-login";
 import OrderTracking from "@/pages/order-tracking";
 import AdminDashboard from "@/pages/admin-dashboard";
+import AdminMenu from "@/pages/admin-menu";
 import AdminLogin from "@/pages/admin-login";
 import NotFound from "@/pages/not-found";
 
@@ -35,6 +36,9 @@ function Router() {
       
       {/* Admin Routes */}
       <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/menu">
+        <ProtectedAdminRoute component={AdminMenu} />
+      </Route>
       <Route path="/admin">
         <ProtectedAdminRoute component={AdminDashboard} />
       </Route>

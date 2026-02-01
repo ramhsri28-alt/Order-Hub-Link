@@ -66,11 +66,16 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
                         <div className="flex justify-between items-start">
                           <h4 className="font-semibold text-foreground line-clamp-1">{item.name}</h4>
                           <span className="font-mono text-sm font-medium">
-                            {formatCurrency(item.price * item.quantity)}
+                            {formatCurrency((item.discount > 0 ? item.price * (1 - item.discount / 100) : item.price) * item.quantity)}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1 font-medium">
-                          {formatCurrency(item.price)} each
+                          {item.discount > 0 ? (
+                            <>
+                              <span className="line-through mr-1">{formatCurrency(item.price)}</span>
+                              <span className="text-green-600">{formatCurrency(item.price * (1 - item.discount / 100))}</span>
+                            </>
+                          ) : formatCurrency(item.price)} each
                         </p>
                       </div>
                       

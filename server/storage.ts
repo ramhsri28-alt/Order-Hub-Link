@@ -23,6 +23,8 @@ export interface IStorage {
   getMenuItems(): Promise<MenuItem[]>;
   getMenuItem(id: number): Promise<MenuItem | undefined>;
   createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
+  updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem>;
+  deleteMenuItem(id: number): Promise<void>;
   
   // Orders
   getOrders(): Promise<OrderWithItems[]>;
@@ -44,6 +46,16 @@ export class DatabaseStorage implements IStorage {
   async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
     const [newItem] = await db.insert(menuItems).values(item).returning();
     return newItem;
+  }
+
+  async updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem> {
+    const [updated] = await db.update(menuItems).set(item).where(eq(menuItems.id, id)).returning();
+    if (!updated) throw new Error("Menu item not found");
+    return updated;
+  }
+
+  async deleteMenuItem(id: number): Promise<void> {
+    await db.delete(menuItems).where(eq(menuItems.id, id));
   }
 
   async getOrders(): Promise<OrderWithItems[]> {

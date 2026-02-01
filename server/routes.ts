@@ -27,6 +27,46 @@ export async function registerRoutes(
     res.json(item);
   });
 
+  app.post(api.menu.create.path, async (req, res) => {
+    try {
+      const input = api.menu.create.input.parse(req.body);
+      const item = await storage.createMenuItem(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  app.patch(api.menu.update.path, async (req, res) => {
+    try {
+      const input = api.menu.update.input.parse(req.body);
+      const item = await storage.updateMenuItem(Number(req.params.id), input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+        });
+      }
+      res.status(404).json({ message: "Menu item not found" });
+    }
+  });
+
+  app.delete(api.menu.delete.path, async (req, res) => {
+    try {
+      await storage.deleteMenuItem(Number(req.params.id));
+      res.status(204).send();
+    } catch (err) {
+      res.status(404).json({ message: "Menu item not found" });
+    }
+  });
+
   // === ORDER ROUTES ===
   app.get(api.orders.list.path, async (req, res) => {
     // In a real app, check for admin auth here

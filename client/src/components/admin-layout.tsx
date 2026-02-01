@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, LogOut, UtensilsCrossed, Settings, Menu } from "lucide-react";
+import { LayoutDashboard, LogOut, UtensilsCrossed, Settings, Menu, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Live Orders", href: "/admin" },
+    { icon: BookOpen, label: "Menu Management", href: "/admin/menu" },
   ];
 
   const handleLogout = () => {
