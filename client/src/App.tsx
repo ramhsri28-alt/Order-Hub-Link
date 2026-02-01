@@ -37,11 +37,9 @@ function Router() {
       {/* Admin Routes */}
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/menu">
-        <ProtectedAdminRoute component={AdminMenu} />
+        {() => <ProtectedAdminRoute component={AdminMenu} />}
       </Route>
-      <Route path="/admin">
-        <ProtectedAdminRoute component={AdminDashboard} />
-      </Route>
+      <Route path="/admin" component={() => <ProtectedAdminRoute component={AdminDashboard} />} />
       
       {/* Fallback */}
       <Route component={NotFound} />

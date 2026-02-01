@@ -80,9 +80,21 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 lg:ml-64 min-w-0">
         <header className="h-16 bg-card border-b flex items-center justify-between px-4 lg:hidden sticky top-0 z-10">
           <span className="font-display font-bold text-lg">BistroAdmin</span>
-          <Button size="sm" variant="ghost" onClick={handleLogout}>
-            <LogOut className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href="/admin">
+              <Button size="sm" variant={location === "/admin" ? "secondary" : "ghost"}>
+                <LayoutDashboard className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Link href="/admin/menu">
+              <Button size="sm" variant={location === "/admin/menu" ? "secondary" : "ghost"}>
+                <BookOpen className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Button size="sm" variant="ghost" onClick={handleLogout}>
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </header>
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           {children}
