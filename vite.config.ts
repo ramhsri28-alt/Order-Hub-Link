@@ -14,7 +14,7 @@ export default defineConfig({
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
-  base: "/",
+  base: process.env.GITHUB_ACTIONS ? "/Order-Hub-Link/" : "/",
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
