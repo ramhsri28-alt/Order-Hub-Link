@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCustomerAuth } from "@/hooks/use-customer-auth";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,15 +93,40 @@ export default function CustomerLogin() {
               </div>
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full font-semibold"
-              size="lg"
-              disabled={isLoading}
-              data-testid="button-customer-login"
-            >
-              {isLoading ? "Signing in..." : "Continue as Guest"}
-            </Button>
+            <div className="flex flex-col gap-4 mt-4">
+              <Button
+                type="button"
+                onClick={async () => {
+                  setIsLoading(true);
+                  try {
+                    await signInWithGoogle();
+                  } catch (e) {
+                    toast({
+                      title: "Google sign‑in failed",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className="w-full font-semibold"
+                size="lg"
+                disabled={isLoading}
+                data-testid="button-google-signin"
+              >
+                Sign in with Google
+              </Button>
+
+              <Button
+                type="submit"
+                className="w-full font-semibold"
+                size="lg"
+                disabled={isLoading}
+                data-testid="button-customer-login"
+              >
+                {isLoading ? "Signing in..." : "Continue as Guest"}
+              </Button>
+            </div>
           </form>
           
           <p className="text-xs text-muted-foreground text-center mt-6">
