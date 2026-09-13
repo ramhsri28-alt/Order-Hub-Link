@@ -111,7 +111,11 @@ export async function registerRoutes(
   });
 
   // Seed Data
-  await seedDatabase();
+  try {
+    await seedDatabase();
+  } catch (e) {
+    console.warn('Seeding skipped due to DB error:', e);
+  }
 
   return httpServer;
 }

@@ -35,7 +35,12 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getMenuItems(): Promise<MenuItem[]> {
-    return await db.select().from(menuItems).orderBy(menuItems.category, menuItems.name);
+    try {
+      return await db.select().from(menuItems).orderBy(menuItems.category, menuItems.name);
+    } catch (e) {
+      console.warn('DB error (getMenuItems):', e);
+      return [];
+    }
   }
 
   async getMenuItem(id: number): Promise<MenuItem | undefined> {
