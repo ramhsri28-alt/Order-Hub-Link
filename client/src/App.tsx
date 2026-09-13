@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAdminAuth } from "@/hooks/use-admin-auth";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Loader2 } from "lucide-react";
 
 // Pages
@@ -17,9 +17,17 @@ import NotFound from "@/pages/not-found";
 
 // Protected Admin Route Wrapper
 function ProtectedAdminRoute({ component: Component }: { component: React.ComponentType }) {
-  const { isAuthenticated } = useAdminAuth();
+  const { session, isLoading } = useSupabaseAuth();
 
-  if (!isAuthenticated) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!session) {
     return <Redirect to="/admin/login" />;
   }
 

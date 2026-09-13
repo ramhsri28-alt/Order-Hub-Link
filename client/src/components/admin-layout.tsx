@@ -1,20 +1,20 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, LogOut, UtensilsCrossed, Settings, Menu, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAdminAuth } from "@/hooks/use-admin-auth";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { cn } from "@/lib/utils";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
-  const { username, logout } = useAdminAuth();
+  const { user, signOut } = useSupabaseAuth();
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Live Orders", href: "/admin" },
     { icon: BookOpen, label: "Menu Management", href: "/admin/menu" },
   ];
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     setLocation("/admin/login");
   };
 
@@ -57,10 +57,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t bg-muted/10">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-              {username?.charAt(0).toUpperCase() || "A"}
+              {user?.email?.charAt(0).toUpperCase() || "A"}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium truncate">{username || "Admin"}</p>
+              <p className="text-sm font-medium truncate">{user?.email || "Admin"}</p>
               <p className="text-xs text-muted-foreground truncate">Restaurant Admin</p>
             </div>
           </div>

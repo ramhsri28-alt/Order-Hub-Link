@@ -3,15 +3,12 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
-
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup Auth
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  // Supabase auth is handled on the client-side for Google OAuth.
+  // Backend route protection would involve verifying the JWT passed in the Authorization header.
 
   // === MENU ROUTES ===
   app.get(api.menu.list.path, async (req, res) => {
