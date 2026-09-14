@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { MenuItem } from "@shared/schema";
 import { supabase } from "@/lib/supabase";
+import { trackOmnisendAddToCart } from "@/lib/omnisend";
 
 export interface CartItem extends MenuItem {
   quantity: number;
@@ -114,6 +115,7 @@ export const useCart = create<CartStore>()(
           }
           return { items: [...state.items, { ...item, quantity: 1 }] };
         });
+        trackOmnisendAddToCart(item, 1);
         triggerSync(get, set);
       },
 

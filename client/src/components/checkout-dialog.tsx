@@ -18,6 +18,7 @@ import { Loader2, Phone, Mail, User, MapPin, Navigation, Gift } from "lucide-rea
 import { useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
 import { LocationPicker } from "./location-picker";
+import { trackOmnisendPlacedOrder } from "@/lib/omnisend";
 
 interface CheckoutDialogProps {
   onClose: () => void;
@@ -74,6 +75,21 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
         }))
       });
       
+      // Track placed order in Omnisend
+      trackOmnisendPlacedOrder({
+        totalAmount: total * 1.1,
+        email: email || undefined,
+        lineItems: items.map((item) => {
+          const discount = item.discount ?? 0;
+          const effectivePaisa = discount > 0 ? item.price * (1 - discount / 100) : item.price;
+          return {
+            productTitle: item.name,
+            price: Number((effectivePaisa / 100).toFixed(2)),
+            quantity: item.quantity,
+          };
+        }),
+      });
+
       clearCart();
       setOpen(false);
       onClose();

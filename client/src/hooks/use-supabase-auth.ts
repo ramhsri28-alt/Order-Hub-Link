@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
+import { trackOmnisendSignIn, trackOmnisendSignUp } from "@/lib/omnisend";
 
 export function useSupabaseAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -18,10 +19,21 @@ export function useSupabaseAuth() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
+
+      if (event === "SIGNED_IN" && session?.user?.email) {
+        const createdAt = session.user.created_at ? new Date(session.user.created_at).getTime() : 0;
+        const now = Date.now();
+        // If account was created within the last 60 seconds, treat as new user sign-up
+        if (createdAt > 0 && now - createdAt < 60000) {
+          trackOmnisendSignUp(session.user.email);
+        } else {
+          trackOmnisendSignIn(session.user.email);
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -44,6 +56,7 @@ export function useSupabaseAuth() {
   const signInWithPassword = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    trackOmnisendSignIn(email);
     return data;
   };
 
