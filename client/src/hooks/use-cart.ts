@@ -40,17 +40,27 @@ async function syncToSupabase(
     // Get current user if logged in
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id ?? null;
+    const customerEmail = session?.user?.email ?? null;
+    const customerName =
+      localStorage.getItem("customer_full_name") ??
+      session?.user?.user_metadata?.full_name ??
+      session?.user?.user_metadata?.name ??
+      null;
+
+    const payload = {
+      cart_items: items,
+      total_price: totalPrice,
+      status: "active",
+      user_id: userId,
+      customer_email: customerEmail,
+      customer_name: customerName,
+      updated_at: new Date().toISOString(),
+    };
 
     if (cartId) {
       const { error } = await supabase
         .from("abandoned_carts")
-        .update({
-          cart_items: items,
-          total_price: totalPrice,
-          status: "active",
-          user_id: userId,
-          updated_at: new Date().toISOString(),
-        })
+        .update(payload)
         .eq("id", cartId);
 
       if (!error) return;
@@ -64,6 +74,8 @@ async function syncToSupabase(
         total_price: totalPrice,
         status: "active",
         user_id: userId,
+        customer_email: customerEmail,
+        customer_name: customerName,
       })
       .select("id")
       .single();

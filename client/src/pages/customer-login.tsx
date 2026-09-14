@@ -1,4 +1,3 @@
-// Imports needed for Google sign‑in only
 import { useState } from "react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useLocation, Link } from "wouter";
@@ -7,22 +6,47 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { UtensilsCrossed, ArrowLeft } from "lucide-react";
+import { UtensilsCrossed, ArrowLeft, User } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 export default function CustomerLogin() {
   const { signInWithGoogle } = useSupabaseAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [fullName, setFullName] = useState(() => {
+    return typeof window !== "undefined" ? localStorage.getItem("customer_full_name") || "" : "";
+  });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Google sign‑in only – email/password flow removed
+  const handleGoogleSignIn = async () => {
+    if (!fullName.trim()) {
+      toast({
+        title: "Full Name is required",
+        description: "Please enter your full name before signing in.",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    localStorage.setItem("customer_full_name", fullName.trim());
+    setIsLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      toast({
+        title: "Google sign‑in failed",
+        description: e?.message || "Could not complete sign in.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="text-center pb-8">
+      <Card className="w-full max-w-md shadow-xl border-border/60">
+        <CardHeader className="text-center pb-6">
           <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 text-sm">
             <ArrowLeft className="w-4 h-4" />
             Back to Menu
@@ -32,47 +56,45 @@ export default function CustomerLogin() {
           </div>
           <CardTitle className="text-2xl font-display">Welcome to Hungry Hub</CardTitle>
           <CardDescription>
-            Sign in to securely place your order and save preferences
+            Enter your name and sign in with Google to place orders
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-4 mb-8">
+          <div className="space-y-4 mb-6">
+            <div className="space-y-2 text-left">
+              <Label htmlFor="fullName" className="text-sm font-medium">
+                Full Name <span className="text-destructive">*</span>
+              </Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="pl-10 h-11"
+                  required
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Required so we can personalize your order and cart.
+              </p>
+            </div>
+
             <Button
               type="button"
               variant="outline"
-              onClick={async () => {
-                setIsLoading(true);
-                try {
-                  await signInWithGoogle();
-                } catch (e) {
-                  toast({
-                    title: "Google sign‑in failed",
-                    variant: "destructive",
-                  });
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
-              className="w-full font-semibold h-12 flex items-center justify-center gap-2"
+              onClick={handleGoogleSignIn}
+              className="w-full font-semibold h-12 flex items-center justify-center gap-3 border-2 hover:bg-muted/50 transition-all shadow-sm"
               size="lg"
               disabled={isLoading}
               data-testid="button-google-signin"
             >
               <FcGoogle className="w-5 h-5" />
-              Sign in with Google
+              {isLoading ? "Signing in..." : "Sign in with Google"}
             </Button>
           </div>
-          
-          <div className="relative mb-8">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-muted-foreground/20" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-            </div>
-          </div>
-
-          
         </CardContent>
       </Card>
     </div>

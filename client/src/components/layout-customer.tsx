@@ -1,13 +1,24 @@
 import { Link } from "wouter";
-import { UtensilsCrossed, LogOut, Package, LayoutDashboard } from "lucide-react";
+import { UtensilsCrossed, User, LogOut, Package, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CartDrawer } from "@/components/cart-drawer";
 import { useCart } from "@/hooks/use-cart";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function CustomerLayout({ children }: { children: React.ReactNode }) {
   const cartCount = useCart((state) => state.getCount());
   const { user, signOut } = useSupabaseAuth();
+
+  const storedName = typeof window !== "undefined" ? localStorage.getItem("customer_full_name") : null;
+  const displayName = storedName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const isAdmin = user?.email === 'hungryhub@gmail.com' || user?.user_metadata?.role === 'admin';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -23,31 +34,48 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="flex items-center gap-3">
-            <Link href="/orders">
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground hidden sm:inline-flex gap-2">
-                <Package className="w-4 h-4" />
-                <span>Orders</span>
-              </Button>
-            </Link>
-
-            <Link href="/admin">
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-2">
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Dashboard</span>
-              </Button>
-            </Link>
-
-            {user && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={signOut}
-                className="text-muted-foreground hover:text-destructive gap-1 text-xs"
-                title={`Signed in as ${user.email}. Click to sign out.`}
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Sign Out</span>
-              </Button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="gap-2" data-testid="button-user-menu">
+                    <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="hidden sm:inline font-medium">{displayName}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <div className="px-3 py-2 text-xs text-muted-foreground border-b truncate">
+                    {user.email}
+                  </div>
+                  <Link href="/orders">
+                    <DropdownMenuItem className="cursor-pointer" data-testid="link-my-orders">
+                      <Package className="w-4 h-4 mr-2" />
+                      My Orders
+                    </DropdownMenuItem>
+                  </Link>
+                  {isAdmin && (
+                    <Link href="/admin">
+                      <DropdownMenuItem className="cursor-pointer">
+                        <LayoutDashboard className="w-4 h-4 mr-2" />
+                        Admin Dashboard
+                      </DropdownMenuItem>
+                    </Link>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive focus:text-destructive" data-testid="button-customer-logout">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link href="/login">
+                <Button variant="ghost" className="gap-2" data-testid="button-login">
+                  <User className="w-4 h-4" />
+                  <span className="hidden sm:inline">Sign In</span>
+                </Button>
+              </Link>
             )}
 
             <CartDrawer>

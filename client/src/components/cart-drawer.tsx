@@ -128,7 +128,20 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <SheetFooter>
-              <CheckoutDialog onClose={() => setOpen(false)} />
+              {user ? (
+                <CheckoutDialog onClose={() => setOpen(false)} />
+              ) : (
+                <Link href="/login" className="w-full">
+                  <Button 
+                    className="w-full py-6 text-lg font-semibold gap-2" 
+                    onClick={() => setOpen(false)}
+                    data-testid="button-login-to-checkout"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    Sign In to Checkout
+                  </Button>
+                </Link>
+              )}
             </SheetFooter>
           </div>
         )}
