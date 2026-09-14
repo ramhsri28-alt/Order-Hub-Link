@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useOmnisendAuthSync } from "@/hooks/use-omnisend-auth-sync";
 import { Loader2 } from "lucide-react";
 
 // Pages
@@ -61,6 +62,8 @@ function Router() {
 }
 
 function App() {
+  useOmnisendAuthSync();
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
