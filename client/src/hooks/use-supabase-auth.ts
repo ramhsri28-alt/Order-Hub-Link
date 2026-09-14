@@ -28,10 +28,14 @@ export function useSupabaseAuth() {
   }, []);
 
   const signInWithGoogle = async () => {
+    // Correct redirect URL for Localhost, Vercel, and GitHub Pages (which has /Order-Hub-Link/)
+    const base = import.meta.env.BASE_URL || "/";
+    const redirectUrl = new URL(base, window.location.origin).toString();
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: redirectUrl,
       },
     });
     if (error) throw error;
@@ -42,21 +46,11 @@ export function useSupabaseAuth() {
     if (error) throw error;
   };
 
-  const signInWithPassword = async (email: string, password: string) => {
-    const { error, data } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-    return data;
-  };
-
   return {
     session,
     user,
     isLoading,
     signInWithGoogle,
-    signInWithPassword,
     signOut,
   };
 }
