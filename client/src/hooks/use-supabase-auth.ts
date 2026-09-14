@@ -41,6 +41,12 @@ export function useSupabaseAuth() {
     if (error) throw error;
   };
 
+  const signInWithPassword = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -51,6 +57,7 @@ export function useSupabaseAuth() {
     user,
     isLoading,
     signInWithGoogle,
+    signInWithPassword,
     signOut,
   };
 }
