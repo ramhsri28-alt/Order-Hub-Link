@@ -30,7 +30,7 @@ function ProtectedAdminRoute({ component: Component }: { component: React.Compon
   const isAdmin = user?.email === 'hungryhub@gmail.com' || user?.user_metadata?.role === 'admin';
 
   if (!session || !isAdmin) {
-    return <Redirect to="/" />;
+    return <Redirect to="/admin/login" />;
   }
 
   return <Component />;

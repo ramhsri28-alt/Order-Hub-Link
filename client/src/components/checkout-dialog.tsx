@@ -35,7 +35,8 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
   const total = getTotal();
   const createOrder = useCreateOrder();
   const [, setLocation] = useLocation();
-  const { isAuthenticated, customerName, customerEmail } = useCustomerAuth();
+  const { customerName, customerEmail } = useCustomerAuth();
+  const [name, setName] = useState(customerName || "");
 
   // Calculate bonus points (1 point per Rs. 100)
   const bonusPoints = Math.floor((total * 1.1) / 10000);
@@ -54,13 +55,13 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isAuthenticated || !customerName) {
+    if (!name.trim() || !phone.trim()) {
       return;
     }
     
     try {
       await createOrder.mutateAsync({
-        customerName: customerName,
+        customerName: name,
         customerEmail: email || undefined,
         customerPhone: phone,
         deliveryAddress: address || undefined,
@@ -99,14 +100,16 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-5 mt-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="name">Full Name *</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="name"
-                value={customerName || ""}
-                disabled
-                className="pl-10 bg-muted"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your full name"
+                required
+                className="pl-10"
               />
             </div>
           </div>
