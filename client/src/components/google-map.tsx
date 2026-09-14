@@ -11,7 +11,7 @@ interface GoogleMapProps {
 export function GoogleMap({ 
   lat = 27.7172,  // Default: Kathmandu coordinates
   lng = 85.3240, 
-  address = "BistroSync Restaurant, Kathmandu, Nepal",
+  address = "Hungry Hub Restaurant, Kathmandu, Nepal",
   className = ""
 }: GoogleMapProps) {
   const embedUrl = `https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3532.5!2d${lng}!3d${lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjfCsDQzJzAyLjAiTiA4NcKwMTknMjYuNCJF!5e0!3m2!1sen!2snp!4v1600000000000!5m2!1sen!2snp`;

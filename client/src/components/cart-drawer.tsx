@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
-import { useCustomerAuth } from "@/hooks/use-customer-auth";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Minus, Plus, ShoppingBag, Trash2, LogIn } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -20,7 +20,7 @@ import { Link } from "wouter";
 
 export function CartDrawer({ children }: { children: React.ReactNode }) {
   const { items, updateQuantity, removeItem, getTotal } = useCart();
-  const { isAuthenticated } = useCustomerAuth();
+  const { user } = useSupabaseAuth();
   const total = getTotal();
   const [open, setOpen] = useState(false);
 
@@ -128,7 +128,7 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <SheetFooter>
-              {isAuthenticated ? (
+              {user ? (
                 <CheckoutDialog onClose={() => setOpen(false)} />
               ) : (
                 <Link href="/login" className="w-full">

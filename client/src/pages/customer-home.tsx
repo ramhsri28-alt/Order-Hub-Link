@@ -176,7 +176,7 @@ export default function CustomerHome() {
             <GoogleMap 
               lat={27.7172} 
               lng={85.3240} 
-              address="BistroSync Restaurant, Kathmandu, Nepal" 
+              address="Hungry Hub Restaurant, Kathmandu, Nepal" 
             />
             
             <div className="space-y-6">
@@ -222,7 +222,7 @@ export default function CustomerHome() {
                   <div>
                     <h3 className="font-semibold text-lg mb-1">Address</h3>
                     <p className="text-muted-foreground">
-                      BistroSync Restaurant<br />
+                      Hungry Hub Restaurant<br />
                       Kathmandu, Nepal
                     </p>
                   </div>

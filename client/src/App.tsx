@@ -17,7 +17,7 @@ import NotFound from "@/pages/not-found";
 
 // Protected Admin Route Wrapper
 function ProtectedAdminRoute({ component: Component }: { component: React.ComponentType }) {
-  const { session, isLoading } = useSupabaseAuth();
+  const { session, user, isLoading } = useSupabaseAuth();
 
   if (isLoading) {
     return (
@@ -27,8 +27,10 @@ function ProtectedAdminRoute({ component: Component }: { component: React.Compon
     );
   }
 
-  if (!session) {
-    return <Redirect to="/admin/login" />;
+  const isAdmin = user?.email === 'hungryhub@gmail.com' || user?.user_metadata?.role === 'admin';
+
+  if (!session || !isAdmin) {
+    return <Redirect to="/" />;
   }
 
   return <Component />;

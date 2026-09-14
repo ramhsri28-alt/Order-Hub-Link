@@ -1,14 +1,39 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: "Unauthorized: Missing token" });
+  }
+  
+  const token = authHeader.replace("Bearer ", "");
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
+    return res.status(401).json({ message: "Unauthorized: Invalid token" });
+  }
+  
+  const isAdmin = user.email === 'hungryhub@gmail.com' || user.user_metadata?.role === 'admin';
+  if (!isAdmin) {
+    return res.status(403).json({ message: "Forbidden: Admin access required" });
+  }
+  
+  next();
+};
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Supabase auth is handled on the client-side for Google OAuth.
-  // Backend route protection would involve verifying the JWT passed in the Authorization header.
 
   // === MENU ROUTES ===
   app.get(api.menu.list.path, async (req, res) => {
@@ -24,7 +49,7 @@ export async function registerRoutes(
     res.json(item);
   });
 
-  app.post(api.menu.create.path, async (req, res) => {
+  app.post(api.menu.create.path, requireAdmin, async (req, res) => {
     try {
       const input = api.menu.create.input.parse(req.body);
       const item = await storage.createMenuItem(input);
@@ -40,7 +65,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch(api.menu.update.path, async (req, res) => {
+  app.patch(api.menu.update.path, requireAdmin, async (req, res) => {
     try {
       const input = api.menu.update.input.parse(req.body);
       const item = await storage.updateMenuItem(Number(req.params.id), input);
@@ -55,7 +80,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.menu.delete.path, async (req, res) => {
+  app.delete(api.menu.delete.path, requireAdmin, async (req, res) => {
     try {
       await storage.deleteMenuItem(Number(req.params.id));
       res.status(204).send();
@@ -65,9 +90,8 @@ export async function registerRoutes(
   });
 
   // === ORDER ROUTES ===
-  app.get(api.orders.list.path, async (req, res) => {
-    // In a real app, check for admin auth here
-    // if (!req.isAuthenticated()) return res.status(401).send();
+  app.get(api.orders.list.path, requireAdmin, async (req, res) => {
+    // Admin auth verified by middleware
     const orders = await storage.getOrders();
     res.json(orders);
   });
@@ -93,9 +117,8 @@ export async function registerRoutes(
     }
   });
 
-  app.patch(api.orders.updateStatus.path, async (req, res) => {
-    // In a real app, verify admin authentication here
-
+  app.patch(api.orders.updateStatus.path, requireAdmin, async (req, res) => {
+    // Admin auth verified by middleware
     try {
       const { status } = api.orders.updateStatus.input.parse(req.body);
       const order = await storage.updateOrderStatus(Number(req.params.id), status);
