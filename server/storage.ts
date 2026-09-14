@@ -1,172 +1,211 @@
-import { db } from "./db";
-import {
-  menuItems,
-  orders,
-  orderItems,
-  type MenuItem,
-  type InsertMenuItem,
-  type CreateOrderRequest,
-  type OrderWithItems,
-  type OrderStatus
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type {
+  MenuItem,
+  InsertMenuItem,
+  CreateOrderRequest,
+  OrderWithItems,
+  OrderStatus,
 } from "@shared/schema";
-import { eq, desc, sql } from "drizzle-orm";
+
+// Lazy singleton — created on first use so dotenv.config() has already run
+let _client: SupabaseClient | null = null;
+function getClient(): SupabaseClient {
+  if (!_client) {
+    const url = process.env.VITE_SUPABASE_URL;
+    const key = process.env.VITE_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      throw new Error(
+        "Supabase env vars missing (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)"
+      );
+    }
+    _client = createClient(url, key);
+  }
+  return _client;
+}
 
 function generateOrderNumber(): string {
   const date = new Date();
-  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
+  const random = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0");
   return `ORD-${dateStr}-${random}`;
 }
 
 export interface IStorage {
-  // Menu
   getMenuItems(): Promise<MenuItem[]>;
   getMenuItem(id: number): Promise<MenuItem | undefined>;
   createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
   updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem>;
   deleteMenuItem(id: number): Promise<void>;
-  
-  // Orders
   getOrders(): Promise<OrderWithItems[]>;
   getOrder(id: number): Promise<OrderWithItems | undefined>;
   createOrder(order: CreateOrderRequest): Promise<OrderWithItems>;
   updateOrderStatus(id: number, status: OrderStatus): Promise<OrderWithItems>;
 }
 
-export class DatabaseStorage implements IStorage {
+export class SupabaseStorage implements IStorage {
   async getMenuItems(): Promise<MenuItem[]> {
-    try {
-      return await db.select().from(menuItems).orderBy(menuItems.category, menuItems.name);
-    } catch (e) {
-      console.warn('DB error (getMenuItems):', e);
+    const { data, error } = await getClient()
+      .from("menu_items")
+      .select("*")
+      .order("category")
+      .order("name");
+    if (error) {
+      console.warn("getMenuItems error:", error.message);
       return [];
     }
+    return data ?? [];
   }
 
   async getMenuItem(id: number): Promise<MenuItem | undefined> {
-    const [item] = await db.select().from(menuItems).where(eq(menuItems.id, id));
-    return item;
+    const { data, error } = await getClient()
+      .from("menu_items")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) return undefined;
+    return data ?? undefined;
   }
 
   async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
-    const [newItem] = await db.insert(menuItems).values(item).returning();
-    return newItem;
+    const { data, error } = await getClient()
+      .from("menu_items")
+      .insert(item)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
   }
 
-  async updateMenuItem(id: number, item: Partial<InsertMenuItem>): Promise<MenuItem> {
-    const [updated] = await db.update(menuItems).set(item).where(eq(menuItems.id, id)).returning();
-    if (!updated) throw new Error("Menu item not found");
-    return updated;
+  async updateMenuItem(
+    id: number,
+    item: Partial<InsertMenuItem>
+  ): Promise<MenuItem> {
+    const { data, error } = await getClient()
+      .from("menu_items")
+      .update(item)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw new Error("Menu item not found");
+    return data;
   }
 
   async deleteMenuItem(id: number): Promise<void> {
-    await db.delete(menuItems).where(eq(menuItems.id, id));
+    const { error } = await getClient()
+      .from("menu_items")
+      .delete()
+      .eq("id", id);
+    if (error) throw new Error(error.message);
   }
 
   async getOrders(): Promise<OrderWithItems[]> {
-    const allOrders = await db.query.orders.findMany({
-      orderBy: [desc(orders.createdAt)],
-      with: {
-        items: {
-          with: {
-            menuItem: true
-          }
-        }
-      }
-    });
-    return allOrders;
+    const { data, error } = await getClient()
+      .from("orders")
+      .select(`*, items:order_items(*, menuItem:menu_items(*))`)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.warn("getOrders error:", error.message);
+      return [];
+    }
+    return (data ?? []) as OrderWithItems[];
   }
 
   async getOrder(id: number): Promise<OrderWithItems | undefined> {
-    const order = await db.query.orders.findFirst({
-      where: eq(orders.id, id),
-      with: {
-        items: {
-          with: {
-            menuItem: true
-          }
-        }
-      }
-    });
-    return order;
+    const { data, error } = await getClient()
+      .from("orders")
+      .select(`*, items:order_items(*, menuItem:menu_items(*))`)
+      .eq("id", id)
+      .single();
+    if (error) return undefined;
+    return data as OrderWithItems;
   }
 
   async createOrder(request: CreateOrderRequest): Promise<OrderWithItems> {
-    return await db.transaction(async (tx) => {
-      // 1. Calculate total and verify items
-      let totalAmount = 0;
-      const orderItemsData = [];
+    // 1. Verify items and calculate total
+    let totalAmount = 0;
+    const orderItemsData: {
+      menuItemId: number;
+      quantity: number;
+      price: number;
+    }[] = [];
 
-      for (const itemRequest of request.items) {
-        const [menuItem] = await tx
-          .select()
-          .from(menuItems)
-          .where(eq(menuItems.id, itemRequest.menuItemId));
-
-        if (!menuItem) {
-          throw new Error(`Menu item ${itemRequest.menuItemId} not found`);
-        }
-
-        totalAmount += menuItem.price * itemRequest.quantity;
-        orderItemsData.push({
-          menuItemId: menuItem.id,
-          quantity: itemRequest.quantity,
-          price: menuItem.price
-        });
+    for (const itemRequest of request.items) {
+      const { data: menuItem, error } = await getClient()
+        .from("menu_items")
+        .select("*")
+        .eq("id", itemRequest.menuItemId)
+        .single();
+      if (error || !menuItem) {
+        throw new Error(`Menu item ${itemRequest.menuItemId} not found`);
       }
-
-      // 2. Calculate bonus points (1 point per 100 rupees spent)
-      const bonusPoints = Math.floor(totalAmount / 10000);
-
-      // 3. Create Order
-      const [newOrder] = await tx.insert(orders).values({
-        orderNumber: generateOrderNumber(),
-        customerName: request.customerName,
-        customerEmail: request.customerEmail,
-        customerPhone: request.customerPhone,
-        deliveryAddress: request.deliveryAddress,
-        landmark: request.landmark,
-        latitude: request.latitude,
-        longitude: request.longitude,
-        bonusPoints,
-        totalAmount,
-        status: "pending"
-      }).returning();
-
-      // 4. Create Order Items
-      for (const itemData of orderItemsData) {
-        await tx.insert(orderItems).values({
-          orderId: newOrder.id,
-          ...itemData
-        });
-      }
-
-      // 5. Return complete order
-      const completeOrder = await tx.query.orders.findFirst({
-        where: eq(orders.id, newOrder.id),
-        with: {
-          items: {
-            with: {
-              menuItem: true
-            }
-          }
-        }
+      totalAmount += menuItem.price * itemRequest.quantity;
+      orderItemsData.push({
+        menuItemId: menuItem.id,
+        quantity: itemRequest.quantity,
+        price: menuItem.price,
       });
+    }
 
-      if (!completeOrder) throw new Error("Failed to create order");
-      return completeOrder;
-    });
+    const bonusPoints = Math.floor(totalAmount / 10000);
+
+    // 2. Insert order
+    const { data: newOrder, error: orderError } = await getClient()
+      .from("orders")
+      .insert({
+        order_number: generateOrderNumber(),
+        customer_name: request.customerName,
+        customer_email: request.customerEmail ?? null,
+        customer_phone: request.customerPhone,
+        delivery_address: request.deliveryAddress ?? null,
+        landmark: request.landmark ?? null,
+        latitude: request.latitude ?? null,
+        longitude: request.longitude ?? null,
+        bonus_points: bonusPoints,
+        total_amount: totalAmount,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (orderError || !newOrder) {
+      throw new Error(orderError?.message ?? "Failed to create order");
+    }
+
+    // 3. Insert order items
+    const itemsToInsert = orderItemsData.map((item) => ({
+      order_id: newOrder.id,
+      menu_item_id: item.menuItemId,
+      quantity: item.quantity,
+      price: item.price,
+    }));
+
+    const { error: itemsError } = await getClient()
+      .from("order_items")
+      .insert(itemsToInsert);
+
+    if (itemsError) throw new Error(itemsError.message);
+
+    // 4. Return complete order
+    const complete = await this.getOrder(newOrder.id);
+    if (!complete) throw new Error("Failed to retrieve created order");
+    return complete;
   }
 
-  async updateOrderStatus(id: number, status: OrderStatus): Promise<OrderWithItems> {
-    await db.update(orders)
-      .set({ status })
-      .where(eq(orders.id, id));
-
+  async updateOrderStatus(
+    id: number,
+    status: OrderStatus
+  ): Promise<OrderWithItems> {
+    const { error } = await getClient()
+      .from("orders")
+      .update({ status })
+      .eq("id", id);
+    if (error) throw new Error("Order not found");
     const updated = await this.getOrder(id);
     if (!updated) throw new Error("Order not found");
     return updated;
   }
 }
 
-export const storage = new DatabaseStorage();
+export const storage = new SupabaseStorage();

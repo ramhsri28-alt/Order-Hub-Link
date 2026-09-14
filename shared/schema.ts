@@ -3,8 +3,6 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
-export * from "./models/auth";
-
 // === TABLE DEFINITIONS ===
 
 export const menuItems = pgTable("menu_items", {

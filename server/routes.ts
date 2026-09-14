@@ -3,11 +3,17 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+let _authClient: SupabaseClient | null = null;
+function getAuthClient(): SupabaseClient {
+  if (!_authClient) {
+    const url = process.env.VITE_SUPABASE_URL || "";
+    const key = process.env.VITE_SUPABASE_ANON_KEY || "";
+    _authClient = createClient(url, key);
+  }
+  return _authClient;
+}
 
 const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
@@ -16,7 +22,7 @@ const requireAdmin = async (req: Request, res: Response, next: NextFunction) => 
   }
   
   const token = authHeader.replace("Bearer ", "");
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  const { data: { user }, error } = await getAuthClient().auth.getUser(token);
   
   if (error || !user) {
     return res.status(401).json({ message: "Unauthorized: Invalid token" });

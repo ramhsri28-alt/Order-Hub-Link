@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import 'dotenv/config';
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
@@ -14,11 +13,10 @@ let pool: pg.Pool;
 try {
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, // allow self‑signed certs in dev
+    ssl: { rejectUnauthorized: false },
   });
 } catch (e) {
-  console.warn("Failed to create secure DB pool, falling back to insecure connection:", e);
-  // fallback without SSL (may still work for local dev)
+  console.warn("Failed to create DB pool:", e);
   pool = new Pool({ connectionString: process.env.DATABASE_URL });
 }
 

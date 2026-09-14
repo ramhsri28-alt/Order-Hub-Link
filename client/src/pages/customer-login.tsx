@@ -1,3 +1,4 @@
+// Imports needed for Google sign‑in only
 import { useState } from "react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useLocation, Link } from "wouter";
@@ -6,40 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Lock, UtensilsCrossed, ArrowLeft } from "lucide-react";
+import { UtensilsCrossed, ArrowLeft } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 export default function CustomerLogin() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const { signInWithGoogle } = useSupabaseAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      toast({
-        title: "Fields required",
-        description: "Please enter your email and password.",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Google sign‑in only – email/password flow removed
 
-    setIsLoading(true);
-    // Standard Supabase Email/Password login placeholder
-    // If you haven't wired up signInWithPassword in useSupabaseAuth, 
-    // you can add it later. For now we will just show a toast.
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Feature coming soon",
-        description: "Email login is not yet fully configured. Please use Google Sign In.",
-      });
-    }, 500);
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
@@ -94,51 +72,7 @@ export default function CustomerLogin() {
             </div>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-customer-email"
-                  required
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-customer-password"
-                  required
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full font-semibold mt-4"
-              size="lg"
-              disabled={isLoading}
-              data-testid="button-customer-login"
-            >
-              {isLoading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
+          
         </CardContent>
       </Card>
     </div>
