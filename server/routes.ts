@@ -97,16 +97,22 @@ export async function registerRoutes(
 
   // === ORDER ROUTES ===
   app.get(api.orders.list.path, requireAdmin, async (req, res) => {
-    // Admin auth verified by middleware
     const orders = await storage.getOrders();
     res.json(orders);
+  });
+
+  app.get(api.orders.get.path, async (req, res) => {
+    const order = await storage.getOrder(Number(req.params.id));
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    res.json(order);
   });
 
   app.post(api.orders.create.path, async (req, res) => {
     try {
       const input = api.orders.create.input.parse(req.body);
       const order = await storage.createOrder(input);
-      
       res.status(201).json(order);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -115,16 +121,11 @@ export async function registerRoutes(
           field: err.errors[0].path.join('.'),
         });
       }
-      // Handle custom errors from storage (e.g. item not found)
-      if (err instanceof Error) {
-        return res.status(400).json({ message: err.message });
-      }
       throw err;
     }
   });
 
   app.patch(api.orders.updateStatus.path, requireAdmin, async (req, res) => {
-    // Admin auth verified by middleware
     try {
       const { status } = api.orders.updateStatus.input.parse(req.body);
       const order = await storage.updateOrderStatus(Number(req.params.id), status);
@@ -136,6 +137,81 @@ export async function registerRoutes(
         });
       }
       res.status(404).json({ message: "Order not found" });
+    }
+  });
+
+  // === OMNISEND SUBSCRIBER SYNC ===
+  app.post("/api/subscribe", async (req, res) => {
+    try {
+      const { email, phone, firstName, lastName, fullName } = req.body || {};
+
+      if (!email && !phone) {
+        return res.status(400).json({ message: "Email or phone is required" });
+      }
+
+      const apiKey = process.env.OMNISEND_API_KEY;
+      if (!apiKey) {
+        console.warn("[Omnisend Server] OMNISEND_API_KEY is missing from environment variables.");
+        return res.status(500).json({ message: "Server configuration error: missing OMNISEND_API_KEY" });
+      }
+
+      const fName = firstName || (fullName ? fullName.split(" ")[0] : "");
+      const lName = lastName || (fullName ? fullName.split(" ").slice(1).join(" ") : "");
+
+      const identifiers: Array<Record<string, any>> = [];
+      if (email) {
+        identifiers.push({
+          type: "email",
+          id: email.trim(),
+          channels: {
+            email: {
+              status: "subscribed",
+            },
+          },
+        });
+      }
+
+      if (phone) {
+        identifiers.push({
+          type: "phone",
+          id: phone.trim(),
+          channels: {
+            sms: {
+              status: "subscribed",
+            },
+          },
+        });
+      }
+
+      const payload: Record<string, any> = {
+        identifiers,
+        sendWelcomeEmail: true,
+      };
+
+      if (fName) payload.firstName = fName;
+      if (lName) payload.lastName = lName;
+
+      const response = await fetch("https://api.omnisend.com/v3/contacts", {
+        method: "POST",
+        headers: {
+          "X-API-KEY": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.warn("[Omnisend Server] Contact sync response warning:", response.status, data);
+        return res.status(response.status).json({ success: false, error: data });
+      }
+
+      console.log("[Omnisend Server] Contact synced successfully:", email || phone);
+      return res.status(200).json({ success: true, contact: data });
+    } catch (err: any) {
+      console.error("[Omnisend Server] Contact sync error:", err);
+      return res.status(500).json({ message: "Failed to sync contact with Omnisend", error: err?.message });
     }
   });
 
@@ -177,14 +253,6 @@ async function seedDatabase() {
         price: 20000, // Rs. 200
         category: "Starters",
         imageUrl: "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=800&q=80",
-        available: true
-      },
-      {
-        name: "Spring Rolls",
-        description: "Crispy vegetable rolls with sweet chili sauce.",
-        price: 18000, // Rs. 180
-        category: "Starters",
-        imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
         available: true
       },
       // Mains
@@ -246,7 +314,7 @@ async function seedDatabase() {
         available: true
       },
       {
-        name: "Fresh Lime Soda",
+        name: "Fresh Lemon Soda",
         description: "Refreshing lime juice with soda water.",
         price: 6000, // Rs. 60
         category: "Drinks",

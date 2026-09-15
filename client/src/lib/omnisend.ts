@@ -82,31 +82,57 @@ function normalizePrice(price: number): number {
 // ─── CONTACT IDENTIFICATION ─────────────────────────────────────────────────────
 
 /**
- * Tracks a NEW user sign-up and creates/updates them as a subscribed contact in Omnisend.
- * Sends: email, phone, firstName, status="subscribed"
- * This is what makes them appear in your Omnisend Audience contact list.
+ * Helper to call backend /api/subscribe API route with full profile info (firstName, lastName, email, phone)
+ * using the secure server-side OMNISEND_API_KEY.
+ */
+async function syncContactToBackend(
+  userEmail: string,
+  phone?: string,
+  fullName?: string
+) {
+  try {
+    const firstName = fullName?.split(" ")[0] ?? "";
+    const lastName = fullName?.split(" ").slice(1).join(" ") ?? "";
+
+    await fetch("/api/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: userEmail,
+        phone: phone || undefined,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        fullName: fullName || undefined,
+      }),
+    });
+  } catch (err) {
+    console.warn("[Omnisend] Backend subscribe endpoint call error:", err);
+  }
+}
+
+/**
+ * Tracks a NEW user sign-up.
+ * 1. Frontend JS snippet: Passes ONLY email & phone for browser tracking (no unsupported name fields).
+ * 2. Backend API route: Calls /api/subscribe to sync full name, phone, email securely with Omnisend REST API.
  */
 export async function trackOmnisendSignUp(
   userEmail: string,
   options: { phone?: string; fullName?: string } = {}
 ) {
   try {
-    const firstName = options.fullName?.split(" ")[0] ?? "";
-    const lastName = options.fullName?.split(" ").slice(1).join(" ") ?? "";
-
+    // 1. Frontend snippet tracking: only email & phone
     const accountPayload: Record<string, any> = {
       email: userEmail,
-      status: "subscribed", // Marks as subscribed → triggers Welcome automation
     };
-
-    if (firstName) accountPayload.firstName = firstName;
-    if (lastName) accountPayload.lastName = lastName;
     if (options.phone) accountPayload.phone = options.phone;
 
     await omnisendPush(
       ["account", accountPayload],
-      ["track", "$pageViewed"] // Required by Omnisend to attach session context
+      ["track", "$pageViewed"]
     );
+
+    // 2. Server contact sync with API Key
+    await syncContactToBackend(userEmail, options.phone, options.fullName);
 
     console.log("[Omnisend] Sign-up tracked for:", userEmail);
   } catch (err) {
@@ -115,27 +141,28 @@ export async function trackOmnisendSignUp(
 }
 
 /**
- * Tracks a returning user sign-in. Identifies the session without changing subscription status.
- * This lets Omnisend know who is browsing right now (for abandoned cart, browse abandonment, etc.)
+ * Tracks a returning user sign-in.
+ * 1. Frontend JS snippet: Passes ONLY email & phone for browser tracking.
+ * 2. Backend API route: Calls /api/subscribe to ensure Audience contacts section is updated.
  */
 export async function trackOmnisendSignIn(
   userEmail: string,
   options: { phone?: string; fullName?: string } = {}
 ) {
   try {
-    const firstName = options.fullName?.split(" ")[0] ?? "";
-
+    // 1. Frontend snippet tracking: only email & phone
     const accountPayload: Record<string, any> = {
       email: userEmail,
     };
-
-    if (firstName) accountPayload.firstName = firstName;
     if (options.phone) accountPayload.phone = options.phone;
 
     await omnisendPush(
       ["account", accountPayload],
       ["track", "$pageViewed"]
     );
+
+    // 2. Server contact sync with API Key
+    await syncContactToBackend(userEmail, options.phone, options.fullName);
 
     console.log("[Omnisend] Sign-in tracked for:", userEmail);
   } catch (err) {
