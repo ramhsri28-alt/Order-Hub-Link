@@ -87,6 +87,12 @@ export function useCoupon() {
 
         if (error) {
           console.warn("Coupon check error:", error.message);
+          if (code === "WELCOME20") {
+            setCouponCode(null);
+            setEligibility(null);
+            try { sessionStorage.removeItem(COUPON_STORAGE_KEY); } catch {}
+            return false;
+          }
           setEligibility({
             eligible: false,
             code: "NOT_FIRST_ORDER",
@@ -94,10 +100,23 @@ export function useCoupon() {
           });
           return false;
         } else {
-          setEligibility(data as CouponEligibilityResult);
-          return (data as CouponEligibilityResult).eligible;
+          const res = data as CouponEligibilityResult;
+          if (!res.eligible && code === "WELCOME20") {
+            setCouponCode(null);
+            setEligibility(null);
+            try { sessionStorage.removeItem(COUPON_STORAGE_KEY); } catch {}
+            return false;
+          }
+          setEligibility(res);
+          return res.eligible;
         }
       } catch (err: any) {
+        if (code === "WELCOME20") {
+          setCouponCode(null);
+          setEligibility(null);
+          try { sessionStorage.removeItem(COUPON_STORAGE_KEY); } catch {}
+          return false;
+        }
         setEligibility({
           eligible: false,
           code: "NOT_FIRST_ORDER",
