@@ -170,6 +170,66 @@ export async function trackOmnisendSignIn(
   }
 }
 
+/**
+ * Communicates with the backend to verify first-login status in Supabase.
+ * If this is genuinely the first login, the backend emits the 'new_customer_first_login'
+ * custom event to Omnisend and returns triggered: true.
+ * If returning login, the backend detects the DB state and returns triggered: false.
+ */
+export async function triggerBackendFirstLogin(
+  accessToken: string,
+  userInfo: {
+    email: string;
+    fullName?: string;
+    phone?: string;
+  }
+): Promise<{ success: boolean; triggered: boolean; reason?: string }> {
+  try {
+    const endpoints = ["/api/omnisend/first-login", "/api/first-login"];
+    let response: Response | null = null;
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            email: userInfo.email,
+            fullName: userInfo.fullName,
+            phone: userInfo.phone,
+          }),
+        });
+
+        if (res.ok) {
+          response = res;
+          break;
+        }
+      } catch {
+        // Try next endpoint
+      }
+    }
+
+    if (!response) {
+      console.warn("[Omnisend] First-login API route unreachable");
+      return { success: false, triggered: false };
+    }
+
+    const data = await response.json();
+    console.log("[Omnisend] First-login check result:", data);
+    return {
+      success: Boolean(data.success),
+      triggered: Boolean(data.triggered),
+      reason: data.reason,
+    };
+  } catch (err) {
+    console.warn("[Omnisend] triggerBackendFirstLogin error:", err);
+    return { success: false, triggered: false };
+  }
+}
+
 // ─── CART EVENTS ───────────────────────────────────────────────────────────────
 
 export interface OmnisendLineItem {

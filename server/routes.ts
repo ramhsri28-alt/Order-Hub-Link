@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { sendOmnisendFirstLoginEvent } from "./omnisend";
 
 let _authClient: SupabaseClient | null = null;
 function getAuthClient(): SupabaseClient {
@@ -232,7 +233,7 @@ export async function registerRoutes(
 
       const payload: Record<string, any> = {
         identifiers,
-        sendWelcomeEmail: true,
+        sendWelcomeEmail: false,
       };
 
       if (fName) payload.firstName = fName;
@@ -261,6 +262,73 @@ export async function registerRoutes(
       return res.status(500).json({ message: "Failed to sync contact with Omnisend", error: err?.message });
     }
   });
+
+  // === OMNISEND FIRST LOGIN CUSTOM EVENT ROUTE ===
+  const handleFirstLogin = async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ message: "Authorization token required" });
+      }
+
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      const {
+        data: { user },
+        error: userError,
+      } = await getAuthClient().auth.getUser(token);
+
+      if (userError || !user) {
+        return res.status(401).json({ message: "Invalid or expired session token" });
+      }
+
+      const body = req.body || {};
+      const email = (user.email || body.email || "").trim().toLowerCase();
+      const fullName = (body.fullName || user.user_metadata?.full_name || "").trim();
+      const phone = (body.phone || user.user_metadata?.phone || "").trim();
+
+      // Atomic claim via Supabase RPC (locks and updates database row)
+      const claimResult = await storage.claimFirstLoginWelcome(
+        user.id,
+        email,
+        fullName,
+        phone
+      );
+
+      if (!claimResult.claimed) {
+        // Already triggered previously! Do NOT send the event again
+        return res.status(200).json({
+          success: true,
+          triggered: false,
+          reason: claimResult.reason || "already_triggered",
+          triggeredAt: claimResult.triggeredAt,
+        });
+      }
+
+      // First qualifying login! Dispatch new_customer_first_login custom event to Omnisend
+      const omnisendResult = await sendOmnisendFirstLoginEvent({
+        userId: user.id,
+        email,
+        fullName,
+        phone,
+        couponCode: "WELCOME20",
+      });
+
+      return res.status(200).json({
+        success: true,
+        triggered: true,
+        omnisend: omnisendResult,
+      });
+    } catch (err: any) {
+      console.error("[Omnisend Route] Error in first-login handler:", err);
+      return res.status(500).json({
+        message: "Failed to process first login",
+        error: err?.message,
+      });
+    }
+  };
+
+  app.post("/api/omnisend/first-login", handleFirstLogin);
+  app.post("/api/first-login", handleFirstLogin);
 
   // Seed Data
   try {

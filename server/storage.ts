@@ -6,7 +6,16 @@ import type {
   OrderWithItems,
   OrderStatus,
   CouponEligibilityResult,
+  CustomerProfile,
 } from "@shared/schema";
+
+export type FirstLoginClaimResult = {
+  success: boolean;
+  claimed: boolean;
+  reason?: string;
+  triggeredAt?: string;
+  profile?: CustomerProfile;
+};
 
 // Lazy singleton — created on first use so dotenv.config() has already run
 let _client: SupabaseClient | null = null;
@@ -44,6 +53,12 @@ export interface IStorage {
   createOrder(order: CreateOrderRequest): Promise<OrderWithItems>;
   updateOrderStatus(id: number, status: OrderStatus): Promise<OrderWithItems>;
   validateCoupon(code: string, userId?: string, email?: string, phone?: string): Promise<CouponEligibilityResult>;
+  claimFirstLoginWelcome(
+    userId: string,
+    email?: string,
+    fullName?: string,
+    phone?: string
+  ): Promise<FirstLoginClaimResult>;
 }
 
 export class SupabaseStorage implements IStorage {
@@ -198,6 +213,32 @@ export class SupabaseStorage implements IStorage {
     const updated = await this.getOrder(id);
     if (!updated) throw new Error("Order not found");
     return updated;
+  }
+
+  async claimFirstLoginWelcome(
+    userId: string,
+    email?: string,
+    fullName?: string,
+    phone?: string
+  ): Promise<FirstLoginClaimResult> {
+    const { data, error } = await getClient().rpc("claim_first_login_welcome", {
+      p_user_id: userId,
+      p_email: email || null,
+      p_full_name: fullName || null,
+      p_phone: phone || null,
+    });
+
+    if (error) {
+      throw new Error(`claim_first_login_welcome RPC error: ${error.message}`);
+    }
+
+    return {
+      success: Boolean(data?.success),
+      claimed: Boolean(data?.claimed),
+      reason: data?.reason,
+      triggeredAt: data?.triggered_at,
+      profile: data?.profile,
+    };
   }
 }
 

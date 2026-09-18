@@ -61,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const payload: Record<string, any> = {
       identifiers,
-      sendWelcomeEmail: true,
+      sendWelcomeEmail: false,
     };
 
     if (fName) payload.firstName = fName;

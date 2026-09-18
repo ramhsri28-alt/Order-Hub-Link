@@ -1,22 +1,21 @@
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { trackOmnisendSignIn, trackOmnisendSignUp } from "@/lib/omnisend";
+import { trackOmnisendSignIn, triggerBackendFirstLogin } from "@/lib/omnisend";
 
 /**
  * Global auth sync hook — runs once in App.tsx.
- * On every page load and auth state change, identifies the logged-in user to
- * Omnisend so it can track sessions, abandoned carts, and send automations.
  *
- * For NEW users: pushes status="subscribed" so Welcome automations trigger.
- * For RETURNING users: pushes identification so Omnisend knows who is browsing
- * (enabling abandoned cart detection).
+ * 1. Checks Supabase database authoritative state on first login via backend /api/omnisend/first-login.
+ *    If this is genuinely the first qualifying login, backend emits custom event 'new_customer_first_login' to Omnisend.
+ *    Subsequent logins, page refreshes, and session checks are recognized as already triggered and safely skipped.
+ * 2. Synchronizes contact profile with Omnisend frontend snippet for browser session & abandoned cart tracking.
  */
 export function useOmnisendAuthSync() {
   useEffect(() => {
     const syncUserToOmnisend = async (
-      event: "SIGNED_IN" | "INITIAL_SESSION" | "TOKEN_REFRESHED",
+      accessToken: string,
       userEmail: string,
-      userCreatedAt?: string
+      userId: string
     ) => {
       // Fetch extra profile data (name + phone) from customer_profiles
       let fullName: string | undefined;
@@ -26,7 +25,7 @@ export function useOmnisendAuthSync() {
         const { data: profile } = await supabase
           .from("customer_profiles")
           .select("full_name, phone_number")
-          .eq("email", userEmail)
+          .eq("user_id", userId)
           .maybeSingle();
 
         if (profile) {
@@ -34,42 +33,45 @@ export function useOmnisendAuthSync() {
           phone = profile.phone_number || undefined;
         }
       } catch {
-        // Fail silently — still identify with just email
+        // Fail silently — proceed with available details
       }
 
-      // Determine if this is a new sign-up (account created within the last 90 seconds)
-      const createdAt = userCreatedAt ? new Date(userCreatedAt).getTime() : 0;
-      const isNewSignUp = createdAt > 0 && Date.now() - createdAt < 90000;
+      // 1. Authoritative server-side First-Login check & custom event dispatch
+      await triggerBackendFirstLogin(accessToken, {
+        email: userEmail,
+        fullName,
+        phone,
+      });
 
-      if (isNewSignUp) {
-        // New user → subscribe + trigger Welcome automation
-        await trackOmnisendSignUp(userEmail, { phone, fullName });
-      } else {
-        // Returning user → identify for session tracking / abandoned cart
-        await trackOmnisendSignIn(userEmail, { phone, fullName });
-      }
+      // 2. Client browser session tracking for Omnisend snippet (cart abandonment, page views)
+      await trackOmnisendSignIn(userEmail, { phone, fullName });
     };
 
     // 1. Check existing session on mount (handles page refreshes and cached tokens)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
+      if (session?.user?.email && session.access_token) {
         syncUserToOmnisend(
-          "INITIAL_SESSION",
+          session.access_token,
           session.user.email,
-          session.user.created_at
+          session.user.id
         );
       }
     });
 
-    // 2. Listen for all future auth events (OAuth callbacks, email sign-ins, token refreshes)
+    // 2. Listen for all future auth events (OAuth callbacks, email sign-ins)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (
         session?.user?.email &&
+        session.access_token &&
         (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
       ) {
-        syncUserToOmnisend(event, session.user.email, session.user.created_at);
+        syncUserToOmnisend(
+          session.access_token,
+          session.user.email,
+          session.user.id
+        );
       }
     });
 

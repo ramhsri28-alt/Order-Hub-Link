@@ -134,6 +134,7 @@ export const customerProfiles = pgTable("customer_profiles", {
   email: text("email").notNull(),
   fullName: text("full_name").notNull().default(""),
   phoneNumber: text("phone_number").notNull().default(""),
+  omnisendWelcomeTriggeredAt: timestamp("omnisend_welcome_triggered_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
