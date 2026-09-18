@@ -167,10 +167,12 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
                         )}
                       </div>
                       <p className="text-[11px] opacity-90">
-                        {eligibility?.message ||
-                          (isEligible
-                            ? "Discount applied to your order!"
-                            : "Checking eligibility...")}
+                        {isEligible && isWelcome20
+                          ? "Welcome! Since this is your first order you have got 20% off. Welcome to Hungry Hub!"
+                          : eligibility?.message ||
+                            (isEligible
+                              ? "Discount applied to your order!"
+                              : "Checking eligibility...")}
                       </p>
                     </div>
                   </div>
