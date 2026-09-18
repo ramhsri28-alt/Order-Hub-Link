@@ -25,6 +25,7 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
   const { user } = useSupabaseAuth();
   const {
     couponCode,
+    isWelcome20,
     isEligible,
     discountPercent,
     eligibility,
