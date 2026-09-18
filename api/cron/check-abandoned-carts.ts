@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 1. Authenticated customer (user_id IS NOT NULL)
     // 2. Email exists (customer_email IS NOT NULL and not blank)
     // 3. Status is 'active' (not already purchased or recovered)
-    // 4. Inactivity: updated_at <= NOW() - 1 hour (unless forceCartId is specified for testing)
+    // 4. Inactivity: updated_at <= NOW() - 15 minutes (unless forceCartId is specified for testing)
     // 5. Not already triggered (omnisend_triggered_at IS NULL)
     // 6. Token is not expired (recovery_token_expires_at > NOW())
     let query = supabase
@@ -79,10 +79,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq("id", forceCartId)
         .limit(1);
     } else {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       query = query
         .eq("status", "active")
-        .lte("updated_at", oneHourAgo);
+        .lte("updated_at", fifteenMinutesAgo);
     }
 
     const { data: eligibleCarts, error: dbError } = await query;
@@ -225,25 +225,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Step 3: Dispatch Omnisend Custom Event "abandoned_cart"
-        // Also supports custom automation triggers with full product details
+        // Matches exact Omnisend automation trigger and payload specifications
         try {
+          // Dynamic list of products, quantities, and prices (e.g. "Icecream × 1 (Rs. 500)" or "Lassi × 1 (Rs. 80) + Masala Tea × 1 (Rs. 50)")
+          const productsSummary = convertedProducts
+            .map((p) => `${p.title} × ${p.quantity} (Rs. ${p.price})`)
+            .join(" + ");
+
           const eventPayload = {
+            name: "abandoned_cart",
             systemName: "abandoned_cart",
             eventName: "abandoned_cart",
             origin: "api",
             email: email,
+            contact: {
+              email: email,
+            },
+            properties: {
+              cartId: cart.id,
+              currency: "NPR",
+              recoveryUrl: recoveryUrl,
+              productsSummary: productsSummary,
+              totalAmount: totalRupees,
+            },
             fields: {
+              cartId: cart.id,
+              currency: "NPR",
+              recoveryUrl: recoveryUrl,
+              productsSummary: productsSummary,
+              totalAmount: totalRupees,
               customerName: customerName,
               firstName: firstName,
-              cartId: cart.id,
-              recoveryUrl: recoveryUrl,
-              totalAmount: totalRupees,
-              currency: "NPR",
               itemCount: convertedProducts.length,
-              // Full list of products formatted for email templates
-              productsSummary: convertedProducts
-                .map((p) => `${p.title} (Qty: ${p.quantity}) - Rs. ${p.price}`)
-                .join(", "),
               items: convertedProducts,
               abandonedAt: new Date().toISOString(),
             },
