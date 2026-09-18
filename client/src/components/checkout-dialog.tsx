@@ -40,12 +40,19 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
   const [longitude, setLongitude] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { items, clearCart, getTotal } = useCart();
+  const { items, clearCart, getTotal, cartId, isCheckoutOpen, setIsCheckoutOpen } = useCart();
   const total = getTotal();
   const createOrder = useCreateOrder();
   const [, setLocation] = useLocation();
 
   const [name, setName] = useState("");
+
+  // Sync recovery checkout auto-open
+  useEffect(() => {
+    if (isCheckoutOpen) {
+      setOpen(true);
+    }
+  }, [isCheckoutOpen]);
 
   // Pre-fill user details from profile or auth session
   useEffect(() => {
@@ -100,16 +107,18 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
         longitude: longitude || undefined,
         couponCode: isEligible && couponCode ? couponCode : undefined,
         userId: user?.id,
+        cartId: cartId || undefined,
         items: items.map(item => ({
           menuItemId: item.id,
           quantity: item.quantity
         }))
       });
       
-      // Track placed order in Omnisend
+      // Track placed order in Omnisend with specific cart ID
       trackOmnisendPlacedOrder({
         totalAmount: finalTotal,
         email: email || undefined,
+        cartId: cartId || undefined,
         lineItems: items.map((item) => {
           const discount = item.discount ?? 0;
           const effectivePaisa = discount > 0 ? item.price * (1 - discount / 100) : item.price;
@@ -121,7 +130,8 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
         }),
       });
 
-      clearCart();
+      clearCart(false, true);
+      setIsCheckoutOpen(false);
       setOpen(false);
       onClose();
       setLocation("/orders");
@@ -139,7 +149,13 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog 
+      open={open} 
+      onOpenChange={(next) => {
+        setOpen(next);
+        setIsCheckoutOpen(next);
+      }}
+    >
       <DialogTrigger asChild>
         <Button className="w-full py-6 text-lg font-semibold shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all">
           Checkout Now

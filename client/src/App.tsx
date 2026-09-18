@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 import CustomerHome from "@/pages/customer-home";
 import CustomerLogin from "@/pages/customer-login";
 import OrderTracking from "@/pages/order-tracking";
+import CartRecoveryPage from "@/pages/cart-recovery";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminMenu from "@/pages/admin-menu";
 import AdminLogin from "@/pages/admin-login";
@@ -46,6 +47,7 @@ function Router() {
         <Route path="/" component={CustomerHome} />
         <Route path="/login" component={CustomerLogin} />
         <Route path="/orders" component={OrderTracking} />
+        <Route path="/recover-cart" component={CartRecoveryPage} />
         
         {/* Admin Routes */}
         <Route path="/admin/login" component={AdminLogin} />

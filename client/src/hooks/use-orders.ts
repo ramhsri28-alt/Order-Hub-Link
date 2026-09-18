@@ -127,6 +127,7 @@ export function useCreateOrder() {
           p_longitude: data.longitude || null,
           p_coupon_code: data.couponCode || null,
           p_user_id: userId,
+          p_cart_id: data.cartId || null,
         }
       );
 

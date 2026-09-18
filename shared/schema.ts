@@ -92,6 +92,7 @@ export type CreateOrderRequest = {
   longitude?: string;
   couponCode?: string;
   userId?: string;
+  cartId?: string;
   items: {
     menuItemId: number;
     quantity: number;
@@ -142,4 +143,22 @@ export const customerProfiles = pgTable("customer_profiles", {
 export const insertCustomerProfileSchema = createInsertSchema(customerProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export type CustomerProfile = typeof customerProfiles.$inferSelect;
 export type InsertCustomerProfile = z.infer<typeof insertCustomerProfileSchema>;
+
+// === ABANDONED CARTS ===
+export const abandonedCarts = pgTable("abandoned_carts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id"),
+  cartItems: jsonb("cart_items").notNull(),
+  totalPrice: integer("total_price").notNull(), // In paisa
+  status: text("status").notNull().default("active"), // active, abandoned, purchased, recovered, expired
+  customerEmail: text("customer_email"),
+  customerName: text("customer_name"),
+  recoveryToken: text("recovery_token"),
+  recoveryTokenExpiresAt: timestamp("recovery_token_expires_at"),
+  omnisendTriggeredAt: timestamp("omnisend_triggered_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AbandonedCart = typeof abandonedCarts.$inferSelect;
 

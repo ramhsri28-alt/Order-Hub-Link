@@ -288,6 +288,7 @@ export async function trackOmnisendAddToCart(
 export async function trackOmnisendPlacedOrder(orderData: {
   totalAmount: number; // in paisa/cents
   email?: string;
+  cartId?: string;
   lineItems: OmnisendLineItem[];
 }) {
   try {
@@ -300,11 +301,13 @@ export async function trackOmnisendPlacedOrder(orderData: {
         currency: "NPR",
         value: totalOrderAmount,
         email: orderData.email || undefined,
+        cartId: orderData.cartId || undefined,
+        orderPlaced: true,
         lineItems: orderData.lineItems,
       },
     ]);
 
-    console.log("[Omnisend] Order placed tracked. Amount:", totalOrderAmount);
+    console.log("[Omnisend] Order placed tracked. Amount:", totalOrderAmount, "CartId:", orderData.cartId);
   } catch (err) {
     console.warn("[Omnisend] Order tracking error:", err);
   }

@@ -11,12 +11,26 @@ export interface CartItem extends MenuItem {
 interface CartStore {
   items: CartItem[];
   cartId: string | null;
+  recoveryToken: string | null;
+  isCheckoutOpen: boolean;
+  setIsCheckoutOpen: (open: boolean) => void;
   addItem: (item: MenuItem) => void;
   removeItem: (itemId: number) => void;
   updateQuantity: (itemId: number, quantity: number) => void;
-  clearCart: (recovered?: boolean) => void;
+  restoreCart: (items: CartItem[], cartId: string, recoveryToken?: string) => void;
+  clearCart: (recovered?: boolean, isPurchased?: boolean) => void;
   getTotal: () => number;
   getCount: () => number;
+}
+
+function generateSecureToken(): string {
+  try {
+    const arr = new Uint8Array(24);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  }
 }
 
 // Debounce timer for Supabase sync so rapid clicks don't spam the DB
@@ -25,6 +39,7 @@ let syncTimer: ReturnType<typeof setTimeout> | null = null;
 async function syncToSupabase(
   items: CartItem[],
   cartId: string | null,
+  recoveryToken: string | null,
   set: (state: Partial<CartStore>) => void
 ) {
   try {
@@ -48,13 +63,18 @@ async function syncToSupabase(
       session?.user?.user_metadata?.name ??
       null;
 
-    const payload = {
+    const activeToken = recoveryToken || generateSecureToken();
+    const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const payload: Record<string, any> = {
       cart_items: items,
       total_price: totalPrice,
       status: "active",
       user_id: userId,
       customer_email: customerEmail,
       customer_name: customerName,
+      recovery_token: activeToken,
+      recovery_token_expires_at: sevenDaysLater,
       updated_at: new Date().toISOString(),
     };
 
@@ -64,25 +84,24 @@ async function syncToSupabase(
         .update(payload)
         .eq("id", cartId);
 
-      if (!error) return;
+      if (!error) {
+        if (!recoveryToken) set({ recoveryToken: activeToken });
+        return;
+      }
     }
 
     // Insert new abandoned cart record
     const { data, error } = await supabase
       .from("abandoned_carts")
-      .insert({
-        cart_items: items,
-        total_price: totalPrice,
-        status: "active",
-        user_id: userId,
-        customer_email: customerEmail,
-        customer_name: customerName,
-      })
-      .select("id")
+      .insert(payload)
+      .select("id, recovery_token")
       .single();
 
     if (!error && data?.id) {
-      set({ cartId: data.id });
+      set({ 
+        cartId: data.id,
+        recoveryToken: data.recovery_token || activeToken,
+      });
     }
   } catch (err) {
     console.warn("Failed to sync abandoned cart to Supabase:", err);
@@ -92,8 +111,8 @@ async function syncToSupabase(
 function triggerSync(get: () => CartStore, set: (state: Partial<CartStore>) => void) {
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
-    const { items, cartId } = get();
-    syncToSupabase(items, cartId, set);
+    const { items, cartId, recoveryToken } = get();
+    syncToSupabase(items, cartId, recoveryToken, set);
   }, 500);
 }
 
@@ -102,6 +121,19 @@ export const useCart = create<CartStore>()(
     (set, get) => ({
       items: [],
       cartId: null,
+      recoveryToken: null,
+      isCheckoutOpen: false,
+
+      setIsCheckoutOpen: (open) => set({ isCheckoutOpen: open }),
+
+      restoreCart: (items, cartId, recoveryToken) => {
+        set({
+          items,
+          cartId,
+          recoveryToken: recoveryToken || null,
+          isCheckoutOpen: true,
+        });
+      },
 
       addItem: (item) => {
         set((state) => {
@@ -140,16 +172,24 @@ export const useCart = create<CartStore>()(
         triggerSync(get, set);
       },
 
-      clearCart: (recovered = true) => {
+      clearCart: (recovered = true, isPurchased = false) => {
         const { cartId } = get();
-        if (cartId && recovered) {
+        if (cartId) {
+          const status = isPurchased ? "purchased" : (recovered ? "recovered" : "active");
+          const updateData: Record<string, any> = {
+            status,
+            updated_at: new Date().toISOString(),
+          };
+          if (isPurchased) {
+            updateData.recovery_token_expires_at = new Date().toISOString();
+          }
           supabase
             .from("abandoned_carts")
-            .update({ status: "recovered", updated_at: new Date().toISOString() })
+            .update(updateData)
             .eq("id", cartId)
             .then();
         }
-        set({ items: [], cartId: null });
+        set({ items: [], cartId: null, recoveryToken: null });
       },
 
       getTotal: () => {
