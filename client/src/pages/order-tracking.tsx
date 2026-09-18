@@ -1,6 +1,7 @@
 import { CustomerLayout } from "@/components/layout-customer";
 import { useOrders } from "@/hooks/use-orders";
 import { useCustomerAuth } from "@/hooks/use-customer-auth";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,8 @@ import {
   Loader2,
   Gift,
   Package,
-  ArrowLeft
+  ArrowLeft,
+  Tag
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
@@ -174,9 +176,24 @@ function OrderTrackingCard({ order }: { order: OrderWithItems }) {
               ))}
             </ul>
             
-            <div className="mt-4 pt-4 border-t flex justify-between font-bold">
-              <span>Total</span>
-              <span className="font-mono">{formatCurrency(order.totalAmount * 1.1)}</span>
+            <div className="mt-4 pt-4 border-t space-y-1.5 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="font-mono">{formatCurrency(order.subtotalAmount || order.totalAmount)}</span>
+              </div>
+              {order.discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    {order.couponCode || "Discount"}
+                  </span>
+                  <span className="font-mono">-{formatCurrency(order.discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-base pt-1 border-t">
+                <span>Total</span>
+                <span className="font-mono">{formatCurrency(order.totalAmount * 1.1)}</span>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -187,13 +204,24 @@ function OrderTrackingCard({ order }: { order: OrderWithItems }) {
 
 export default function OrderTracking() {
   const { data: allOrders, isLoading } = useOrders();
-  const { customerName, isAuthenticated } = useCustomerAuth();
+  const { customerName, isAuthenticated: isCustAuth } = useCustomerAuth();
+  const { user, profile } = useSupabaseAuth();
 
-  // Filter orders for the current customer
-  const myOrders = allOrders?.filter(o => o.customerName === customerName) || [];
+  const isUserAuthenticated = Boolean(user || isCustAuth);
+
+  // Filter orders for current authenticated customer
+  const myOrders =
+    allOrders?.filter((o) => {
+      if (user?.id && (o as any).userId === user.id) return true;
+      if (user?.email && o.customerEmail && o.customerEmail.toLowerCase() === user.email.toLowerCase()) return true;
+      if (profile?.phoneNumber && o.customerPhone === profile.phoneNumber) return true;
+      if (customerName && o.customerName === customerName) return true;
+      return false;
+    }) || [];
+
   const totalPoints = myOrders.reduce((sum, o) => sum + (o.bonusPoints || 0), 0);
 
-  if (!isAuthenticated) {
+  if (!isUserAuthenticated) {
     return (
       <CustomerLayout>
         <div className="container mx-auto px-4 py-20 text-center">

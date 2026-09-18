@@ -5,6 +5,7 @@ import type {
   CreateOrderRequest,
   OrderWithItems,
   OrderStatus,
+  CouponEligibilityResult,
 } from "@shared/schema";
 
 // Lazy singleton — created on first use so dotenv.config() has already run
@@ -42,6 +43,7 @@ export interface IStorage {
   getOrder(id: number): Promise<OrderWithItems | undefined>;
   createOrder(order: CreateOrderRequest): Promise<OrderWithItems>;
   updateOrderStatus(id: number, status: OrderStatus): Promise<OrderWithItems>;
+  validateCoupon(code: string, userId?: string, email?: string, phone?: string): Promise<CouponEligibilityResult>;
 }
 
 export class SupabaseStorage implements IStorage {
@@ -123,74 +125,65 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createOrder(request: CreateOrderRequest): Promise<OrderWithItems> {
-    // 1. Verify items and calculate total
-    let totalAmount = 0;
-    const orderItemsData: {
-      menuItemId: number;
-      quantity: number;
-      price: number;
-    }[] = [];
-
-    for (const itemRequest of request.items) {
-      const { data: menuItem, error } = await getClient()
-        .from("menu_items")
-        .select("*")
-        .eq("id", itemRequest.menuItemId)
-        .single();
-      if (error || !menuItem) {
-        throw new Error(`Menu item ${itemRequest.menuItemId} not found`);
+    const { data: rpcResult, error: rpcError } = await getClient().rpc(
+      "place_order_with_coupon",
+      {
+        p_customer_name: request.customerName,
+        p_customer_phone: request.customerPhone,
+        p_items: request.items,
+        p_customer_email: request.customerEmail || null,
+        p_delivery_address: request.deliveryAddress || null,
+        p_landmark: request.landmark || null,
+        p_latitude: request.latitude || null,
+        p_longitude: request.longitude || null,
+        p_coupon_code: request.couponCode || null,
+        p_user_id: request.userId || null,
       }
-      totalAmount += menuItem.price * itemRequest.quantity;
-      orderItemsData.push({
-        menuItemId: menuItem.id,
-        quantity: itemRequest.quantity,
-        price: menuItem.price,
-      });
+    );
+
+    if (rpcError) {
+      throw new Error(rpcError.message);
     }
 
-    const bonusPoints = Math.floor(totalAmount / 10000);
-
-    // 2. Insert order
-    const { data: newOrder, error: orderError } = await getClient()
-      .from("orders")
-      .insert({
-        order_number: generateOrderNumber(),
-        customer_name: request.customerName,
-        customer_email: request.customerEmail ?? null,
-        customer_phone: request.customerPhone,
-        delivery_address: request.deliveryAddress ?? null,
-        landmark: request.landmark ?? null,
-        latitude: request.latitude ?? null,
-        longitude: request.longitude ?? null,
-        bonus_points: bonusPoints,
-        total_amount: totalAmount,
-        status: "pending",
-      })
-      .select()
-      .single();
-
-    if (orderError || !newOrder) {
-      throw new Error(orderError?.message ?? "Failed to create order");
+    const orderId = rpcResult?.orderId;
+    if (!orderId) {
+      throw new Error("Failed to create order");
     }
 
-    // 3. Insert order items
-    const itemsToInsert = orderItemsData.map((item) => ({
-      order_id: newOrder.id,
-      menu_item_id: item.menuItemId,
-      quantity: item.quantity,
-      price: item.price,
-    }));
-
-    const { error: itemsError } = await getClient()
-      .from("order_items")
-      .insert(itemsToInsert);
-
-    if (itemsError) throw new Error(itemsError.message);
-
-    // 4. Return complete order
-    const complete = await this.getOrder(newOrder.id);
+    const complete = await this.getOrder(orderId);
     if (!complete) throw new Error("Failed to retrieve created order");
     return complete;
+  }
+
+  async validateCoupon(
+    code: string,
+    userId?: string,
+    email?: string,
+    phone?: string
+  ): Promise<CouponEligibilityResult> {
+    const cleanCode = code.toUpperCase().trim();
+    if (cleanCode !== "WELCOME20") {
+      return {
+        eligible: false,
+        code: "INVALID_COUPON",
+        message: "Invalid coupon code.",
+      };
+    }
+
+    const { data, error } = await getClient().rpc(
+      "check_welcome_coupon_eligibility",
+      {
+        p_user_id: userId || null,
+        p_email: email || null,
+        p_phone: phone || null,
+      }
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data as CouponEligibilityResult;
   }
 
   async updateOrderStatus(

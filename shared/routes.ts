@@ -88,6 +88,14 @@ export const api = {
         200: z.array(z.any()), // Returns OrderWithItems[]
       },
     },
+    get: {
+      method: 'GET' as const,
+      path: '/api/orders/:id',
+      responses: {
+        200: z.any(),
+        404: errorSchemas.notFound,
+      },
+    },
     create: {
       method: 'POST' as const,
       path: '/api/orders',
@@ -99,6 +107,8 @@ export const api = {
         landmark: z.string().optional(),
         latitude: z.string().optional(),
         longitude: z.string().optional(),
+        couponCode: z.string().optional(),
+        userId: z.string().optional(),
         items: z.array(z.object({
           menuItemId: z.number(),
           quantity: z.number().min(1),
@@ -118,6 +128,27 @@ export const api = {
       responses: {
         200: z.any(),
         404: errorSchemas.notFound,
+      },
+    },
+  },
+  coupons: {
+    validate: {
+      method: 'POST' as const,
+      path: '/api/coupons/validate',
+      input: z.object({
+        code: z.string().min(1),
+        userId: z.string().optional(),
+        email: z.string().optional(),
+        phone: z.string().optional(),
+      }),
+      responses: {
+        200: z.object({
+          eligible: z.boolean(),
+          code: z.string(),
+          message: z.string(),
+          discount_percent: z.number().optional(),
+        }),
+        400: errorSchemas.validation,
       },
     },
   },

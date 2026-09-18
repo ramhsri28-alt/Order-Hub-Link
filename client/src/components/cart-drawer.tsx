@@ -8,9 +8,11 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useCart } from "@/hooks/use-cart";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { Minus, Plus, ShoppingBag, Trash2, LogIn } from "lucide-react";
+import { useCoupon } from "@/hooks/use-coupon";
+import { Minus, Plus, ShoppingBag, Trash2, LogIn, Tag, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
@@ -21,8 +23,35 @@ import { Link } from "wouter";
 export function CartDrawer({ children }: { children: React.ReactNode }) {
   const { items, updateQuantity, removeItem, getTotal } = useCart();
   const { user } = useSupabaseAuth();
+  const {
+    couponCode,
+    isEligible,
+    discountPercent,
+    eligibility,
+    applyCoupon,
+    removeCoupon,
+  } = useCoupon();
+
   const total = getTotal();
   const [open, setOpen] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+
+  const discountAmount =
+    isEligible && discountPercent > 0
+      ? Math.round(total * (discountPercent / 100))
+      : 0;
+
+  const discountedSubtotal = total - discountAmount;
+  const taxAmount = Math.round(discountedSubtotal * 0.1);
+  const finalTotal = discountedSubtotal + taxAmount;
+
+  const handleApplyCoupon = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (couponInput.trim()) {
+      applyCoupon(couponInput.trim());
+      setCouponInput("");
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -111,29 +140,113 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
         </div>
 
         {items.length > 0 && (
-          <div className="pt-6 mt-auto border-t bg-background">
-            <div className="space-y-3 mb-6">
+          <div className="pt-4 mt-auto border-t bg-background space-y-4">
+            {/* Coupon Code Section */}
+            <div className="space-y-2">
+              {couponCode ? (
+                <div
+                  className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+                    isEligible
+                      ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
+                      : "bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 text-amber-800 dark:text-amber-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 flex-1 mr-2">
+                    {isEligible ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    )}
+                    <div>
+                      <div className="font-semibold flex items-center gap-1">
+                        <span>{couponCode}</span>
+                        {isEligible && (
+                          <span className="text-[10px] bg-emerald-200 dark:bg-emerald-900 px-1.5 py-0.5 rounded font-bold">
+                            {discountPercent}% OFF
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] opacity-90">
+                        {eligibility?.message ||
+                          (isEligible
+                            ? "Discount applied to your order!"
+                            : "Checking eligibility...")}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeCoupon}
+                    className="h-6 w-6 p-0 hover:bg-transparent"
+                    title="Remove coupon"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <form
+                  onSubmit={handleApplyCoupon}
+                  className="flex gap-2 items-center"
+                >
+                  <div className="relative flex-1">
+                    <Tag className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Coupon (e.g. WELCOME20)"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      className="h-9 pl-8 text-xs uppercase"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    size="sm"
+                    className="h-9 text-xs px-3"
+                    disabled={!couponInput.trim()}
+                  >
+                    Apply
+                  </Button>
+                </form>
+              )}
+            </div>
+
+            {/* Price Breakdown */}
+            <div className="space-y-2 mb-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatCurrency(total)}</span>
               </div>
+
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    {couponCode} (-{discountPercent}%)
+                  </span>
+                  <span>-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Taxes (10%)</span>
-                <span>{formatCurrency(total * 0.1)}</span>
+                <span>{formatCurrency(taxAmount)}</span>
               </div>
               <Separator />
               <div className="flex justify-between text-lg font-bold font-display">
                 <span>Total</span>
-                <span>{formatCurrency(total * 1.1)}</span>
+                <span>{formatCurrency(finalTotal)}</span>
               </div>
             </div>
+
             <SheetFooter>
               {user ? (
                 <CheckoutDialog onClose={() => setOpen(false)} />
               ) : (
                 <Link href="/login" className="w-full">
-                  <Button 
-                    className="w-full py-6 text-lg font-semibold gap-2" 
+                  <Button
+                    className="w-full py-6 text-lg font-semibold gap-2"
                     onClick={() => setOpen(false)}
                     data-testid="button-login-to-checkout"
                   >

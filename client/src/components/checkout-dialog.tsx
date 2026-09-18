@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { useCart } from "@/hooks/use-cart";
 import { useCreateOrder } from "@/hooks/use-orders";
-import { useCustomerAuth } from "@/hooks/use-customer-auth";
-import { Loader2, Phone, Mail, User, MapPin, Navigation, Gift } from "lucide-react";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useCoupon } from "@/hooks/use-coupon";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Phone, Mail, User, MapPin, Navigation, Gift, Tag, CheckCircle2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
 import { LocationPicker } from "./location-picker";
@@ -26,27 +28,53 @@ interface CheckoutDialogProps {
 
 export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
   const [open, setOpen] = useState(false);
+  const { user, profile } = useSupabaseAuth();
+  const { couponCode, isEligible, discountPercent } = useCoupon();
+  const { toast } = useToast();
+
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [landmark, setLandmark] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const { items, clearCart, getTotal } = useCart();
   const total = getTotal();
   const createOrder = useCreateOrder();
   const [, setLocation] = useLocation();
-  const { customerName, customerEmail } = useCustomerAuth();
-  const [name, setName] = useState(customerName || "");
+
+  const [name, setName] = useState("");
+
+  // Pre-fill user details from profile or auth session
+  useEffect(() => {
+    if (profile?.fullName) {
+      setName(profile.fullName);
+    } else if (user?.user_metadata?.full_name) {
+      setName(user.user_metadata.full_name);
+    }
+    if (user?.email) {
+      setEmail(user.email);
+    } else if (profile?.email) {
+      setEmail(profile.email);
+    }
+    if (profile?.phoneNumber) {
+      setPhone(profile.phoneNumber);
+    }
+  }, [user, profile]);
+
+  const discountAmount =
+    isEligible && discountPercent > 0
+      ? Math.round(total * (discountPercent / 100))
+      : 0;
+
+  const discountedSubtotal = total - discountAmount;
+  const taxAmount = Math.round(discountedSubtotal * 0.1);
+  const finalTotal = discountedSubtotal + taxAmount;
 
   // Calculate bonus points (1 point per Rs. 100)
-  const bonusPoints = Math.floor((total * 1.1) / 10000);
-
-  useEffect(() => {
-    if (customerEmail) {
-      setEmail(customerEmail);
-    }
-  }, [customerEmail]);
+  const bonusPoints = Math.floor(finalTotal / 10000);
 
   const handleLocationChange = (lat: string, lng: string) => {
     setLatitude(lat);
@@ -55,6 +83,7 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     
     if (!name.trim() || !phone.trim()) {
       return;
@@ -69,6 +98,8 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
         landmark: landmark || undefined,
         latitude: latitude || undefined,
         longitude: longitude || undefined,
+        couponCode: isEligible && couponCode ? couponCode : undefined,
+        userId: user?.id,
         items: items.map(item => ({
           menuItemId: item.id,
           quantity: item.quantity
@@ -77,7 +108,7 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
       
       // Track placed order in Omnisend
       trackOmnisendPlacedOrder({
-        totalAmount: total * 1.1,
+        totalAmount: finalTotal,
         email: email || undefined,
         lineItems: items.map((item) => {
           const discount = item.discount ?? 0;
@@ -95,8 +126,15 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
       onClose();
       setLocation("/orders");
       
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const msg = error?.message || "Failed to place order. Please try again.";
+      setErrorMessage(msg);
+      toast({
+        title: "Order failed",
+        description: msg,
+        variant: "destructive",
+      });
     }
   };
 
@@ -202,6 +240,31 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
             </div>
           </div>
 
+          {/* Order & Discount Summary */}
+          <div className="p-3 bg-muted/40 rounded-lg border space-y-1.5 text-sm">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Subtotal</span>
+              <span>{formatCurrency(total)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="flex items-center gap-1">
+                  <Tag className="w-3.5 h-3.5" />
+                  {couponCode} (-{discountPercent}%)
+                </span>
+                <span>-{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-muted-foreground">
+              <span>Taxes (10%)</span>
+              <span>{formatCurrency(taxAmount)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-base pt-1 border-t">
+              <span>Final Total</span>
+              <span className="text-primary">{formatCurrency(finalTotal)}</span>
+            </div>
+          </div>
+
           {/* Bonus Points Preview */}
           {bonusPoints > 0 && (
             <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
@@ -214,10 +277,16 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
               </div>
             </div>
           )}
+
+          {errorMessage && (
+            <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
+              {errorMessage}
+            </div>
+          )}
           
           <Button 
             type="submit" 
-            className="w-full py-6 font-semibold text-lg" 
+            className="w-full py-6 font-semibold text-lg shadow-lg shadow-primary/20" 
             disabled={createOrder.isPending}
             data-testid="button-place-order"
           >
@@ -227,7 +296,7 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
                 Processing...
               </>
             ) : (
-              `Place Order - ${formatCurrency(total * 1.1)}`
+              `Place Order - ${formatCurrency(finalTotal)}`
             )}
           </Button>
         </form>

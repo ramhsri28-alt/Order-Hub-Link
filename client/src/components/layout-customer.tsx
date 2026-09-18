@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { UtensilsCrossed, ShoppingCart, LogOut, User, ClipboardList, ShieldCheck } from "lucide-react";
+import { UtensilsCrossed, ShoppingCart, LogOut, User, ClipboardList, ShieldCheck, Tag, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,11 +11,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useCart } from "@/hooks/use-cart";
+import { useCoupon } from "@/hooks/use-coupon";
 import { CartDrawer } from "@/components/cart-drawer";
 import { AdminLoginModal } from "@/components/admin-login-modal";
 
 export function CustomerLayout({ children }: { children: React.ReactNode }) {
   const { session, user, signOut } = useSupabaseAuth();
+  const { couponCode, isEligible, removeCoupon } = useCoupon();
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const cartItems = useCart((s) => s.items);
   const totalItems = cartItems.reduce((sum, i) => sum + i.quantity, 0);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
@@ -32,6 +35,41 @@ export function CustomerLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Promotional Banner for WELCOME20 */}
+      {couponCode === "WELCOME20" && !bannerDismissed && (
+        <div className="bg-gradient-to-r from-primary/95 to-amber-600 text-white text-xs sm:text-sm py-2 px-4 shadow-sm">
+          <div className="container mx-auto flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-medium">
+              <Sparkles className="w-4 h-4 flex-shrink-0 animate-pulse text-yellow-200" />
+              {isEligible ? (
+                <span>
+                  <strong>WELCOME20 Applied!</strong> You get <strong>20% OFF</strong> your first qualifying order at checkout.
+                </span>
+              ) : !user ? (
+                <span>
+                  <strong>WELCOME20:</strong> Get <strong>20% OFF</strong> your first order!{" "}
+                  <Link href="/login" className="underline font-bold hover:text-yellow-200">
+                    Sign in or create an account
+                  </Link>{" "}
+                  to redeem.
+                </span>
+              ) : (
+                <span>
+                  <strong>WELCOME20:</strong> Valid exclusively for newly registered customers on their first order.
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              className="p-1 hover:bg-white/20 rounded transition-colors text-white"
+              aria-label="Dismiss banner"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Navbar */}
       <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">

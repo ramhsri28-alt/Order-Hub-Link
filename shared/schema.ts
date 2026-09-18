@@ -29,6 +29,10 @@ export const orders = pgTable("orders", {
   bonusPoints: integer("bonus_points").default(0).notNull(), // Bonus points earned for this order
   status: text("status").notNull().default("pending"), // pending, preparing, ready, delivered, cancelled
   totalAmount: integer("total_amount").notNull(), // In paisa (Nepali currency)
+  subtotalAmount: integer("subtotal_amount"), // In paisa before coupon discount
+  discountAmount: integer("discount_amount").default(0).notNull(), // In paisa
+  couponCode: text("coupon_code"),
+  userId: uuid("user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -86,6 +90,8 @@ export type CreateOrderRequest = {
   landmark?: string;
   latitude?: string;
   longitude?: string;
+  couponCode?: string;
+  userId?: string;
   items: {
     menuItemId: number;
     quantity: number;
@@ -99,6 +105,27 @@ export type UpdateOrderStatusRequest = {
 // API Response Types
 export type MenuItemResponse = MenuItem;
 export type OrderResponse = OrderWithItems;
+
+// === COUPON REDEMPTIONS ===
+export const couponRedemptions = pgTable("coupon_redemptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  couponCode: text("coupon_code").notNull(),
+  userId: uuid("user_id").notNull(),
+  orderId: integer("order_id").notNull().references(() => orders.id),
+  customerEmail: text("customer_email"),
+  customerPhone: text("customer_phone").notNull(),
+  discountAmount: integer("discount_amount").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type CouponRedemption = typeof couponRedemptions.$inferSelect;
+
+export type CouponEligibilityResult = {
+  eligible: boolean;
+  code: "ELIGIBLE" | "AUTH_REQUIRED" | "NOT_FIRST_ORDER" | "ALREADY_REDEEMED" | "INVALID_COUPON";
+  message: string;
+  discount_percent?: number;
+};
 
 // === CUSTOMER PROFILES (for sign-up data: name, phone, email) ===
 export const customerProfiles = pgTable("customer_profiles", {
@@ -114,3 +141,4 @@ export const customerProfiles = pgTable("customer_profiles", {
 export const insertCustomerProfileSchema = createInsertSchema(customerProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export type CustomerProfile = typeof customerProfiles.$inferSelect;
 export type InsertCustomerProfile = z.infer<typeof insertCustomerProfileSchema>;
+

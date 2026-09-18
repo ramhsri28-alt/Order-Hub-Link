@@ -112,16 +112,63 @@ export async function registerRoutes(
   app.post(api.orders.create.path, async (req, res) => {
     try {
       const input = api.orders.create.input.parse(req.body);
+
+      // If userId not provided in body, extract from auth token
+      if (!input.userId && req.headers.authorization) {
+        try {
+          const token = req.headers.authorization.replace("Bearer ", "");
+          const { data: { user } } = await getAuthClient().auth.getUser(token);
+          if (user) {
+            input.userId = user.id;
+          }
+        } catch {}
+      }
+
       const order = await storage.createOrder(input);
       res.status(201).json(order);
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
           field: err.errors[0].path.join('.'),
         });
       }
-      throw err;
+      return res.status(400).json({
+        message: err?.message || "Failed to place order",
+      });
+    }
+  });
+
+  // === COUPON VALIDATION ROUTE ===
+  app.post(api.coupons.validate.path, async (req, res) => {
+    try {
+      const input = api.coupons.validate.input.parse(req.body);
+      let userId = input.userId;
+
+      if (!userId && req.headers.authorization) {
+        try {
+          const token = req.headers.authorization.replace("Bearer ", "");
+          const { data: { user } } = await getAuthClient().auth.getUser(token);
+          if (user) userId = user.id;
+        } catch {}
+      }
+
+      const result = await storage.validateCoupon(
+        input.code,
+        userId,
+        input.email,
+        input.phone
+      );
+      res.json(result);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+        });
+      }
+      return res.status(400).json({
+        message: err?.message || "Failed to validate coupon",
+      });
     }
   });
 

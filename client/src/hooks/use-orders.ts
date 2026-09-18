@@ -49,6 +49,10 @@ export function useOrders() {
         bonusPoints: order.bonus_points ?? 0,
         status: order.status,
         totalAmount: order.total_amount,
+        subtotalAmount: order.subtotal_amount,
+        discountAmount: order.discount_amount ?? 0,
+        couponCode: order.coupon_code,
+        userId: order.user_id,
         createdAt: new Date(order.created_at),
         items: (order.items ?? []).map((oi: any) => ({
           id: oi.id,
@@ -79,78 +83,105 @@ export function useCreateOrder() {
 
   return useMutation({
     mutationFn: async (data: CreateOrderRequest) => {
-      // 1. Try Express API
+      // 1. Try Express API if server is active
       try {
+        const { data: authData } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (authData?.session?.access_token) {
+          headers["Authorization"] = `Bearer ${authData.session.access_token}`;
+        }
+
         const res = await fetch(api.orders.create.path, {
           method: api.orders.create.method,
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(data),
         });
 
         if (res.ok) {
           return (await res.json()) as OrderWithItems;
+        } else if (res.status === 400) {
+          const errData = await res.json();
+          throw new Error(errData.message || "Failed to create order");
         }
-      } catch (err) {
-        // Express backend not present
+      } catch (err: any) {
+        if (err?.message && !err.message.includes("Failed to fetch") && !err.message.includes("NetworkError")) {
+          throw err;
+        }
+        // Express backend not present or unreachable; proceed to Supabase RPC
       }
 
-      // 2. Direct Supabase order creation
-      let totalAmount = 0;
-      const itemsToInsert: { menuItemId: number; quantity: number; price: number }[] = [];
+      // 2. Direct Supabase atomic RPC execution
+      const { data: authData } = await supabase.auth.getSession();
+      const userId = data.userId || authData?.session?.user?.id || null;
 
-      for (const item of data.items) {
-        const { data: mi } = await supabase
-          .from("menu_items")
-          .select("*")
-          .eq("id", item.menuItemId)
-          .single();
+      const { data: rpcResult, error: rpcError } = await supabase.rpc(
+        "place_order_with_coupon",
+        {
+          p_customer_name: data.customerName,
+          p_customer_phone: data.customerPhone,
+          p_items: data.items,
+          p_customer_email: data.customerEmail || null,
+          p_delivery_address: data.deliveryAddress || null,
+          p_landmark: data.landmark || null,
+          p_latitude: data.latitude || null,
+          p_longitude: data.longitude || null,
+          p_coupon_code: data.couponCode || null,
+          p_user_id: userId,
+        }
+      );
 
-        const price = mi?.price ?? 0;
-        totalAmount += price * item.quantity;
-        itemsToInsert.push({
-          menuItemId: item.menuItemId,
-          quantity: item.quantity,
-          price,
-        });
+      if (rpcError) {
+        throw new Error(rpcError.message);
       }
 
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-      const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
-      const orderNumber = `ORD-${dateStr}-${random}`;
+      const orderId = rpcResult?.orderId;
+      if (!orderId) {
+        throw new Error("Failed to place order.");
+      }
 
-      const { data: newOrder, error: orderErr } = await supabase
+      const { data: fetchedOrder, error: fetchErr } = await supabase
         .from("orders")
-        .insert({
-          order_number: orderNumber,
-          customer_name: data.customerName,
-          customer_email: data.customerEmail ?? null,
-          customer_phone: data.customerPhone,
-          delivery_address: data.deliveryAddress ?? null,
-          landmark: data.landmark ?? null,
-          latitude: data.latitude ?? null,
-          longitude: data.longitude ?? null,
-          bonus_points: Math.floor(totalAmount / 10000),
-          status: "pending",
-          total_amount: totalAmount,
-        })
-        .select()
+        .select(`
+          *,
+          items:order_items (
+            *,
+            menuItem:menu_items (*)
+          )
+        `)
+        .eq("id", orderId)
         .single();
 
-      if (orderErr) throw new Error(orderErr.message);
-
-      if (itemsToInsert.length > 0) {
-        await supabase.from("order_items").insert(
-          itemsToInsert.map(oi => ({
-            order_id: newOrder.id,
-            menu_item_id: oi.menuItemId,
-            quantity: oi.quantity,
-            price: oi.price,
-          }))
-        );
+      if (fetchErr || !fetchedOrder) {
+        return rpcResult.order as unknown as OrderWithItems;
       }
 
-      return newOrder as unknown as OrderWithItems;
+      return {
+        id: fetchedOrder.id,
+        orderNumber: fetchedOrder.order_number,
+        customerName: fetchedOrder.customer_name,
+        customerEmail: fetchedOrder.customer_email,
+        customerPhone: fetchedOrder.customer_phone,
+        deliveryAddress: fetchedOrder.delivery_address,
+        landmark: fetchedOrder.landmark,
+        latitude: fetchedOrder.latitude,
+        longitude: fetchedOrder.longitude,
+        bonusPoints: fetchedOrder.bonus_points ?? 0,
+        status: fetchedOrder.status,
+        totalAmount: fetchedOrder.total_amount,
+        subtotalAmount: fetchedOrder.subtotal_amount,
+        discountAmount: fetchedOrder.discount_amount ?? 0,
+        couponCode: fetchedOrder.coupon_code,
+        userId: fetchedOrder.user_id,
+        createdAt: new Date(fetchedOrder.created_at),
+        items: (fetchedOrder.items ?? []).map((oi: any) => ({
+          id: oi.id,
+          orderId: oi.order_id,
+          menuItemId: oi.menu_item_id,
+          quantity: oi.quantity,
+          price: oi.price,
+          menuItem: oi.menuItem,
+        })),
+      } as unknown as OrderWithItems;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });

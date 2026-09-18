@@ -1,9 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-let supabase;
+let supabase: SupabaseClient;
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase env vars missing – using dummy client for UI preview');
   // Dummy values so createClient does not throw; these won't connect to a real backend.
@@ -15,3 +15,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export { supabase };
+
