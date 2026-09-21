@@ -33,8 +33,10 @@ export const orders = pgTable("orders", {
   discountAmount: integer("discount_amount").default(0).notNull(), // In paisa
   couponCode: text("coupon_code"),
   userId: uuid("user_id"),
+  omnisendPlacedOrderAt: timestamp("omnisend_placed_order_at", { withTimezone: true }), // Set when placed order event is sent to Omnisend
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
 
 export const orderItems = pgTable("order_items", {
   id: serial("id").primaryKey(),

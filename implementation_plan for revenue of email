@@ -1,0 +1,161 @@
+# Implementation Plan: Strict Omnisend Email-Click Revenue Attribution
+
+## 1. Executive Summary & Objective
+The objective is to implement **strict Omnisend email-click revenue attribution** for the Hungry Hub website (`https://hubhungry.vercel.app`).
+
+By default, ecommerce tracking often sends every placed order to analytics platforms. This implementation introduces an **Attribution Gatekeeper** ensuring that Omnisend receives order and revenue events **ONLY** when an order directly originated from a verified Omnisend email click within an active attribution window (default: 7 days).
+
+---
+
+## 2. Attribution Scenarios
+
+| Scenario | Traffic Source | Internal Order (Supabase) | Omnisend Revenue Attribution |
+| :--- | :--- | :--- | :--- |
+| **Scenario A** | Omnisend Email Click | Recorded normally | **YES (Attributed)** |
+| **Scenario B** | Google / Organic Search | Recorded normally | **NO (Zero Event Sent)** |
+| **Scenario C** | Direct Visit (Typed URL) | Recorded normally | **NO (Zero Event Sent)** |
+| **Scenario D** | Social Media / Referral | Recorded normally | **NO (Zero Event Sent)** |
+| **Scenario E** | Expired Email Click (> 7 days) | Recorded normally | **NO (Zero Event Sent)** |
+
+---
+
+## 3. Omnisend Link Anatomy & Detection Criteria
+
+When a customer clicks a link in an Omnisend campaign or automation email, Omnisend appends query parameters to the destination URL. A visit qualifies as an Omnisend email click if **either** of the following conditions is met:
+
+1. **Explicit UTM Parameters**:
+   * `utm_source=omnisend` **AND** `utm_medium=email`
+2. **Omnisend Identifiers**:
+   * Presence of `omnisendContactID`, `omnisendAttributionID`, `omnisendMessageID`, or `omnisendCampaignID`.
+
+Any visit without these markers is classified as non-email traffic (Direct, Search, or Social).
+
+---
+
+## 4. Architecture & Data Flow
+
+```
+[Customer clicks Omnisend email]
+           │
+           ▼
+[Lands on Website with URL Params] ──► Captured by Omnisend Attribution Hook
+           │                            │
+           │                            ▼
+           │                     Stored in localStorage
+           │                     - source: "omnisend_email"
+           │                     - clickedAt: timestamp
+           │                     - expiresAt: timestamp + 7 days
+           │                     - campaign / message IDs
+           ▼
+[Customer Browses, Adds to Cart, Logs In] ──► Attribution persists in localStorage
+           │                                 ──► Bound to Supabase User ID on login
+           ▼
+[Customer Completes Checkout]
+           │
+           ▼
+[Internal Order Created in Supabase]
+           │
+           ▼
+[Attribution Gatekeeper Check]
+     ├── Valid Omnisend Attribution & Unexpired?
+     │         ├── YES ──► Check Order Idempotency (Not sent yet?)
+     │         │                ├── YES ──► Emit `trackOmnisendPlacedOrder`
+     │         │                │           Mark order as sent
+     │         │                │           Expire/consume attribution
+     │         │                └── NO  ──► Skip (prevent duplicate)
+     │         │
+     │         └── NO  ──► DO NOTHING (No call to Omnisend)
+```
+
+---
+
+## 5. Implementation Specifications
+
+### A. Attribution Capture Layer (`client/src/lib/omnisend-attribution.ts`)
+* Create a dedicated helper module that:
+  1. Inspects `window.location.search` on application boot and URL changes.
+  2. Parses query parameters (`utm_source`, `utm_medium`, `omnisendContactID`, `omnisendAttributionID`, `omnisendMessageID`).
+  3. If valid, computes `expiresAt = Date.now() + (WINDOW_DAYS * 24 * 60 * 60 * 1000)`.
+  4. Stores the record under key `omnisend_email_attribution` in `localStorage`.
+  5. Cleans up URL search parameters using `window.history.replaceState` if desired, or retains them safely.
+
+### B. User Binding & Account Isolation
+* In `use-supabase-auth.ts` or `use-omnisend-auth-sync.ts`:
+  * When a user logs in, attach `user.id` to the existing attribution object.
+  * **Cross-user protection**: If User A clicks an email and logs out, and User B logs in on the same browser, discard User A's attribution to prevent cross-account misattribution.
+
+### C. Attribution Retrieval & Expiration Engine
+* Implement `getValidOmnisendAttribution(currentUserId?: string)`:
+  * Reads `omnisend_email_attribution` from `localStorage`.
+  * Checks:
+    1. Does the record exist?
+    2. Is `source === "omnisend_email"`?
+    3. Is `Date.now() < record.expiresAt`?
+    4. If `record.userId` is present and `currentUserId` is provided, do they match?
+  * If valid, returns the attribution payload.
+  * If expired or mismatched, removes the record and returns `null`.
+
+### D. Order Gatekeeping in Checkout (`client/src/components/checkout-dialog.tsx`)
+* When an order is successfully created in Supabase:
+  ```typescript
+  const attribution = getValidOmnisendAttribution(user?.id);
+
+  if (attribution) {
+    const isProcessed = isOrderAlreadyAttributed(orderId);
+    if (!isProcessed) {
+      // Send to Omnisend ONLY for attributed email clicks
+      trackOmnisendPlacedOrder({
+        totalAmount: finalTotal,
+        email: email || undefined,
+        cartId: cartId || undefined,
+        lineItems: convertedLineItems,
+      });
+
+      markOrderAsAttributed(orderId);
+      consumeAttribution(); // Ensure one email click does not attribute future unrelated orders
+    }
+  } else {
+    // Non-email visit (Google, Direct, Social):
+    // Normal order placed in Supabase, but NO Omnisend order tracking event fired!
+    console.log("[Omnisend Attribution] Order not attributed to email click. Omnisend tracking skipped.");
+  }
+  ```
+
+### E. Idempotency & Duplicate Protection
+* Use `localStorage` key `omnisend_attributed_orders` (an array/set of order UUIDs).
+* Before firing `trackOmnisendPlacedOrder`, verify `orderId` is not in the set.
+* After firing, append `orderId`.
+* This protects against:
+  * Page refreshes
+  * React re-renders
+  * Double-clicks / network retries
+  * Webhook replays
+
+---
+
+## 6. Configurable Attribution Window
+* Stored in environment variable: `VITE_OMNISEND_ATTRIBUTION_WINDOW_DAYS`.
+* Default: `7` (days).
+* Can be modified anytime without code changes.
+
+---
+
+## 7. Test Matrix & Verification Cases
+
+1. **Omnisend Email Click**: Visit with `?utm_source=omnisend&utm_medium=email` -> complete checkout -> `trackOmnisendPlacedOrder` called.
+2. **Google / Search**: Visit with `?utm_source=google` or organic URL -> checkout -> Omnisend call skipped.
+3. **Direct Visit**: Visit without parameters -> checkout -> Omnisend call skipped.
+4. **Social Traffic**: Visit with `?utm_source=facebook` -> checkout -> Omnisend call skipped.
+5. **Click + Login**: Email click -> login with Supabase -> checkout -> attributed.
+6. **Browse & Cart**: Email click -> browse multiple pages -> add items to cart -> checkout -> attributed.
+7. **Expired Click**: Click with simulated timestamp 8 days ago -> checkout -> Omnisend call skipped.
+8. **User Isolation**: Email clicked on browser -> User A logs out -> User B logs in -> User B orders -> attribution discarded.
+9. **Duplicate Protection**: Refresh checkout success screen -> Omnisend call only fires once.
+10. **Non-destructive Check**: `new_customer_first_login` and contact synchronization remain unaffected.
+
+---
+
+## 8. Files to Modify (Smallest Safe Change)
+1. `client/src/lib/omnisend-attribution.ts` (NEW): Attribution parser, storage, expiration validator, and idempotency store.
+2. `client/src/App.tsx` (MOD): Add attribution capture hook on route load.
+3. `client/src/components/checkout-dialog.tsx` (MOD): Wrap `trackOmnisendPlacedOrder` with the attribution gatekeeper.

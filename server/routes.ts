@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { sendOmnisendFirstLoginEvent } from "./omnisend";
+import { sendPlacedOrderEvent } from "../api/lib/omnisend-events";
 
 let _authClient: SupabaseClient | null = null;
 function getAuthClient(): SupabaseClient {
@@ -127,6 +128,33 @@ export async function registerRoutes(
 
       const order = await storage.createOrder(input);
       res.status(201).json(order);
+
+      // ── Fire "placed order" event to Omnisend (server-side, non-blocking) ──
+      // Runs after the response is sent so it never delays the customer.
+      // Requires a valid customer email — orders without email skip silently.
+      const customerEmail = (input.customerEmail || "").trim().toLowerCase();
+      if (customerEmail) {
+        const lineItems = (order.items || []).map((orderItem) => ({
+          productID: String(orderItem.menuItemId),
+          productTitle: orderItem.menuItem?.name || "Menu Item",
+          // price stored in paisa → convert to rupees
+          productPrice: Number((orderItem.price / 100).toFixed(2)),
+          productQuantity: orderItem.quantity,
+        }));
+
+        sendPlacedOrderEvent({
+          email: customerEmail,
+          orderID: String(order.id),
+          // totalAmount stored in paisa → convert to rupees
+          totalPrice: Number((order.totalAmount / 100).toFixed(2)),
+          currency: "NPR",
+          lineItems,
+        }).catch((err) => {
+          console.error("[Routes] Omnisend placed order event error (non-fatal):", err?.message);
+        });
+      } else {
+        console.log("[Routes] Omnisend placed order skipped — no customer email on order", order.id);
+      }
     } catch (err: any) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({

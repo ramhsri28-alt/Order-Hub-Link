@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/hooks/use-cart";
 import { useCreateOrder } from "@/hooks/use-orders";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
@@ -20,7 +20,6 @@ import { Loader2, Phone, Mail, User, MapPin, Navigation, Gift, Tag, CheckCircle2
 import { useLocation } from "wouter";
 import { formatCurrency } from "@/lib/utils";
 import { LocationPicker } from "./location-picker";
-import { trackOmnisendPlacedOrder } from "@/lib/omnisend";
 
 interface CheckoutDialogProps {
   onClose: () => void;
@@ -47,12 +46,60 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
 
   const [name, setName] = useState("");
 
+  // Track whether started-checkout event was already fired for this dialog open
+  const startedCheckoutFiredRef = useRef(false);
+
   // Sync recovery checkout auto-open
   useEffect(() => {
     if (isCheckoutOpen) {
       setOpen(true);
     }
   }, [isCheckoutOpen]);
+
+  // Fire "started checkout" server-side Omnisend event when dialog opens
+  // This is fire-and-forget — never blocks the UI
+  useEffect(() => {
+    if (!open) {
+      // Reset the guard so it fires again if dialog is closed and reopened
+      startedCheckoutFiredRef.current = false;
+      return;
+    }
+    if (startedCheckoutFiredRef.current) return;
+    startedCheckoutFiredRef.current = true;
+
+    const currentEmail = (user?.email || "").trim().toLowerCase();
+    if (!currentEmail) return; // Only fire if we have a valid email
+
+    const siteBase = window.location.origin;
+    const checkoutURL = cartId
+      ? `${siteBase}/recover-cart?cartId=${encodeURIComponent(cartId)}`
+      : `${siteBase}/`;
+
+    fetch("/api/omnisend/started-checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: currentEmail,
+        cartId: cartId || "",
+        currency: "NPR",
+        // total is in paisa — convert to rupees
+        value: Number((getTotal() / 100).toFixed(2)),
+        abandonedCheckoutURL: checkoutURL,
+        lineItems: items.map((item) => {
+          const discount = item.discount ?? 0;
+          const effectivePaisa = discount > 0 ? item.price * (1 - discount / 100) : item.price;
+          return {
+            id: item.id,
+            name: item.name,
+            price: Number((effectivePaisa / 100).toFixed(2)),
+            quantity: item.quantity,
+          };
+        }),
+      }),
+    }).catch((err) => {
+      console.warn("[Omnisend] started-checkout fire-and-forget error:", err);
+    });
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-fill user details from profile or auth session
   useEffect(() => {
@@ -114,22 +161,6 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
         }))
       });
       
-      // Track placed order in Omnisend with specific cart ID
-      trackOmnisendPlacedOrder({
-        totalAmount: finalTotal,
-        email: email || undefined,
-        cartId: cartId || undefined,
-        lineItems: items.map((item) => {
-          const discount = item.discount ?? 0;
-          const effectivePaisa = discount > 0 ? item.price * (1 - discount / 100) : item.price;
-          return {
-            productTitle: item.name,
-            price: Number((effectivePaisa / 100).toFixed(2)),
-            quantity: item.quantity,
-          };
-        }),
-      });
-
       clearCart(false, true);
       setIsCheckoutOpen(false);
       setOpen(false);

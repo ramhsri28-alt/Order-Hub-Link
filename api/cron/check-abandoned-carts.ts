@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       baseUrl = `${forwardedProto}://${host}`;
     }
     if (!baseUrl) {
-      baseUrl = "https://order-hub-link.vercel.app";
+      baseUrl = "https://hubhungry.vercel.app";
     }
     baseUrl = baseUrl.replace(/\/$/, "");
 

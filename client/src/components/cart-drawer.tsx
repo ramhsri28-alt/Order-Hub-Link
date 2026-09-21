@@ -15,13 +15,13 @@ import { useCoupon } from "@/hooks/use-coupon";
 import { Minus, Plus, ShoppingBag, Trash2, LogIn, Tag, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckoutDialog } from "./checkout-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { Link } from "wouter";
 
 export function CartDrawer({ children }: { children: React.ReactNode }) {
-  const { items, updateQuantity, removeItem, getTotal } = useCart();
+  const { items, updateQuantity, removeItem, getTotal, isCheckoutOpen, setIsCheckoutOpen } = useCart();
   const { user } = useSupabaseAuth();
   const {
     couponCode,
@@ -36,6 +36,12 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
   const total = getTotal();
   const [open, setOpen] = useState(false);
   const [couponInput, setCouponInput] = useState("");
+
+  useEffect(() => {
+    if (isCheckoutOpen) {
+      setOpen(true);
+    }
+  }, [isCheckoutOpen]);
 
   const discountAmount =
     isEligible && discountPercent > 0
@@ -55,7 +61,15 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet 
+      open={open} 
+      onOpenChange={(val) => {
+        setOpen(val);
+        if (!val && isCheckoutOpen) {
+          setIsCheckoutOpen(false);
+        }
+      }}
+    >
       <SheetTrigger asChild>{children}</SheetTrigger>
       <SheetContent className="w-full sm:max-w-md flex flex-col h-full">
         <SheetHeader className="space-y-4">
