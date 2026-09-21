@@ -4,6 +4,44 @@ import type { MenuItem } from "@shared/schema";
 import { supabase } from "@/lib/supabase";
 import { trackOmnisendAddToCart } from "@/lib/omnisend";
 
+/**
+ * Fires "added product to cart" to our server-side Omnisend endpoint (origin: api).
+ * This is required to satisfy Omnisend automation triggers set to origin: api.
+ * The browser snippet sends origin: web and does NOT match those triggers.
+ * Fire-and-forget — never blocks the UI.
+ */
+async function fireAddedToCartServerEvent(
+  item: { name: string; price: number; discount?: number },
+  quantity: number
+) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const email = user?.email;
+    if (!email) return; // anonymous user — skip server event
+
+    const discount = item.discount ?? 0;
+    const effectivePaisa = discount > 0 ? item.price * (1 - discount / 100) : item.price;
+    const productPrice = Number((effectivePaisa / 100).toFixed(2));
+
+    fetch("/api/omnisend/added-to-cart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        currency: "NPR",
+        value: productPrice,
+        lineItems: [{
+          productTitle: item.name,
+          productPrice,
+          productQuantity: quantity,
+        }],
+      }),
+    }).catch((err) => console.warn("[Omnisend] added-to-cart server event error:", err));
+  } catch (err) {
+    console.warn("[Omnisend] fireAddedToCartServerEvent error:", err);
+  }
+}
+
 export interface CartItem extends MenuItem {
   quantity: number;
 }
@@ -147,7 +185,8 @@ export const useCart = create<CartStore>()(
           }
           return { items: [...state.items, { ...item, quantity: 1 }] };
         });
-        trackOmnisendAddToCart(item, 1);
+        trackOmnisendAddToCart(item, 1);         // browser snippet (origin: web)
+        fireAddedToCartServerEvent(item, 1);     // server-side (origin: api) — triggers automation
         triggerSync(get, set);
       },
 
