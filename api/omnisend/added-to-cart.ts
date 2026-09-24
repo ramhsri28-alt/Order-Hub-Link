@@ -1,5 +1,40 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sendAddedToCartEvent } from "../lib/omnisend-events";
+
+// Inline Omnisend call — no cross-directory import so Vercel can bundle correctly
+async function fireOmnisendAddedToCart(payload: {
+  email: string;
+  value: number;
+  currency: string;
+  lineItems: { productID?: string; productTitle: string; productPrice: number; productQuantity: number }[];
+}): Promise<{ success: boolean; status?: number; error?: string }> {
+  const apiKey = process.env.OMNISEND_API_KEY;
+  if (!apiKey) return { success: false, error: "OMNISEND_API_KEY not set" };
+  try {
+    const res = await fetch("https://api.omnisend.com/api/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Omnisend-API-Key ${apiKey}`,
+        "Omnisend-Version": "2026-03-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        eventName: "added product to cart",
+        origin: "api",
+        contact: { email: payload.email },
+        properties: {
+          value: payload.value,
+          currency: payload.currency,
+          lineItems: payload.lineItems,
+        },
+      }),
+    });
+    if (res.ok) return { success: true, status: res.status };
+    const err = await res.text();
+    return { success: false, status: res.status, error: err };
+  } catch (e: any) {
+    return { success: false, error: e?.message };
+  }
+}
 
 /**
  * POST /api/omnisend/added-to-cart
@@ -58,7 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Always returns 200 so the client is never blocked
-    const result = await sendAddedToCartEvent({ email, value, currency, lineItems });
+    const result = await fireOmnisendAddedToCart({ email, value, currency, lineItems });
 
     return res.status(200).json({
       success: result.success,

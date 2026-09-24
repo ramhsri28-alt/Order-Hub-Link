@@ -1,6 +1,43 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { sendPlacedOrderEvent } from "../lib/omnisend-events";
+
+// Inline Omnisend call — no cross-directory import so Vercel can bundle correctly
+async function fireOmnisendPlacedOrder(payload: {
+  email: string;
+  orderID: string;
+  totalPrice: number;
+  currency: string;
+  lineItems: { productID?: string; productTitle: string; productPrice: number; productQuantity: number }[];
+}): Promise<{ success: boolean; status?: number; error?: string }> {
+  const apiKey = process.env.OMNISEND_API_KEY;
+  if (!apiKey) return { success: false, error: "OMNISEND_API_KEY not set" };
+  try {
+    const res = await fetch("https://api.omnisend.com/api/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Omnisend-API-Key ${apiKey}`,
+        "Omnisend-Version": "2026-03-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        eventName: "placed order",
+        origin: "api",
+        contact: { email: payload.email },
+        properties: {
+          orderID: payload.orderID,
+          totalPrice: payload.totalPrice,
+          currency: payload.currency,
+          lineItems: payload.lineItems,
+        },
+      }),
+    });
+    if (res.ok) return { success: true, status: res.status };
+    const err = await res.text();
+    return { success: false, status: res.status, error: err };
+  } catch (e: any) {
+    return { success: false, error: e?.message };
+  }
+}
 
 /**
  * POST /api/omnisend/placed-order
@@ -133,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }));
 
     // ── Fire Omnisend event ─────────────────────────────────────────────────
-    const result = await sendPlacedOrderEvent({
+    const result = await fireOmnisendPlacedOrder({
       email,
       orderID,
       totalPrice,

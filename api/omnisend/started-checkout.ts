@@ -1,5 +1,44 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sendStartedCheckoutEvent } from "../lib/omnisend-events";
+
+// Inline Omnisend call — no cross-directory import so Vercel can bundle correctly
+async function fireOmnisendStartedCheckout(payload: {
+  email: string;
+  cartID: string;
+  value: number;
+  currency: string;
+  abandonedCheckoutURL: string;
+  lineItems: { productID?: string; productTitle: string; productPrice: number; productQuantity: number }[];
+}): Promise<{ success: boolean; status?: number; error?: string }> {
+  const apiKey = process.env.OMNISEND_API_KEY;
+  if (!apiKey) return { success: false, error: "OMNISEND_API_KEY not set" };
+  try {
+    const res = await fetch("https://api.omnisend.com/api/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Omnisend-API-Key ${apiKey}`,
+        "Omnisend-Version": "2026-03-15",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        eventName: "started checkout",
+        origin: "api",
+        contact: { email: payload.email },
+        properties: {
+          cartID: payload.cartID,
+          value: payload.value,
+          currency: payload.currency,
+          abandonedCheckoutURL: payload.abandonedCheckoutURL,
+          lineItems: payload.lineItems,
+        },
+      }),
+    });
+    if (res.ok) return { success: true, status: res.status };
+    const err = await res.text();
+    return { success: false, status: res.status, error: err };
+  } catch (e: any) {
+    return { success: false, error: e?.message };
+  }
+}
 
 /**
  * POST /api/omnisend/started-checkout
@@ -88,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       productQuantity: item.quantity || item.productQuantity || 1,
     }));
 
-    const result = await sendStartedCheckoutEvent({
+    const result = await fireOmnisendStartedCheckout({
       email,
       cartID,
       value,
