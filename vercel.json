@@ -1,15 +1,21 @@
 {
   "crons": [
     {
-      "path": "/api/cron/check-abandoned-carts",
+      "path": "/api/cron-check-abandoned-carts",
       "schedule": "*/15 * * * *"
     },
     {
-      "path": "/api/omnisend/sync-products",
+      "path": "/api/omnisend-sync-products",
       "schedule": "0 2 * * *"
     }
   ],
   "rewrites": [
+    { "source": "/api/omnisend/sync-products", "destination": "/api/omnisend-sync-products" },
+    { "source": "/api/omnisend/started-checkout", "destination": "/api/omnisend-started-checkout" },
+    { "source": "/api/omnisend/placed-order", "destination": "/api/omnisend-placed-order" },
+    { "source": "/api/omnisend/added-to-cart", "destination": "/api/omnisend-added-to-cart" },
+    { "source": "/api/omnisend/test-events", "destination": "/api/omnisend-test-events" },
+    { "source": "/api/cron/check-abandoned-carts", "destination": "/api/cron-check-abandoned-carts" },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
