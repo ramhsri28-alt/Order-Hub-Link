@@ -1,1 +1,6 @@
-export { default } from "./omnisend/started-checkout";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import handler from "./omnisend/started-checkout";
+
+export default async function(req: VercelRequest, res: VercelResponse) {
+  return handler(req, res);
+}
