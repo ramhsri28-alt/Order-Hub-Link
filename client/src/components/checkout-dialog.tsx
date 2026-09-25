@@ -144,7 +144,7 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
     }
     
     try {
-      await createOrder.mutateAsync({
+      const createdOrder = await createOrder.mutateAsync({
         customerName: name,
         customerEmail: email || undefined,
         customerPhone: phone,
@@ -161,6 +161,33 @@ export function CheckoutDialog({ onClose }: CheckoutDialogProps) {
         }))
       });
       
+      // Fire placed-order to Omnisend for Sales Revenue Attribution (fire-and-forget, non-blocking)
+      const currentEmail = (email || user?.email || "").trim().toLowerCase();
+      if (currentEmail && createdOrder?.id) {
+        fetch("/api/omnisend/placed-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: currentEmail,
+            orderId: String(createdOrder.id),
+            totalPrice: Number((finalTotal / 100).toFixed(2)),
+            currency: "NPR",
+            lineItems: items.map((item) => {
+              const discount = item.discount ?? 0;
+              const effectivePaisa = discount > 0 ? item.price * (1 - discount / 100) : item.price;
+              return {
+                id: item.id,
+                name: item.name,
+                price: Number((effectivePaisa / 100).toFixed(2)),
+                quantity: item.quantity,
+              };
+            }),
+          }),
+        }).catch((err) => {
+          console.warn("[Omnisend] placed-order fire-and-forget error:", err);
+        });
+      }
+
       clearCart(false, true);
       setIsCheckoutOpen(false);
       setOpen(false);

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Omnisend Integration Playbook</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+    
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 11pt;
+      line-height: 1.55;
+      color: #1e293b;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1, h2, h3, h4 {
+      color: #0f172a;
+      font-weight: 700;
+      line-height: 1.25;
+      page-break-after: avoid;
+    }
+
+    h1 {
+      font-size: 22pt;
+      margin-top: 0;
+      margin-bottom: 6px;
+      color: #0284c7;
+    }
+
+    .subtitle {
+      font-size: 11.5pt;
+      color: #64748b;
+      margin-bottom: 24px;
+      font-style: italic;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 14.5pt;
+      margin-top: 24px;
+      margin-bottom: 10px;
+      border-bottom: 1.5px solid #cbd5e1;
+      padding-bottom: 4px;
+      color: #0369a1;
+    }
+
+    h3 {
+      font-size: 12pt;
+      margin-top: 16px;
+      margin-bottom: 6px;
+      color: #0f172a;
+    }
+
+    p {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    ul, ol {
+      margin-top: 0;
+      margin-bottom: 12px;
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 9.5pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 8.5pt;
+      line-height: 1.45;
+      overflow-x: auto;
+      page-break-inside: avoid;
+      margin-top: 6px;
+      margin-bottom: 14px;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border: none;
+    }
+
+    .alert {
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      page-break-inside: avoid;
+    }
+
+    .alert-caution {
+      background: #fef2f2;
+      border-left: 4px solid #ef4444;
+      color: #991b1b;
+    }
+
+    .alert-tip {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      color: #166534;
+    }
+
+    .diagram {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5pt;
+      white-space: pre;
+      line-height: 1.35;
+      margin-bottom: 14px;
+      page-break-inside: avoid;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Omnisend Integration Playbook</h1>
+  <div class="subtitle">Architecture, Pitfalls & AI Agent Guidelines &bull; Hungry Hub Reference Guide</div>
+
+  <h2>1. Executive Summary & Purpose</h2>
+  <p>This document is a technical guide and post-mortem derived from the real-world integration of <strong>Omnisend</strong> into the <strong>Hungry Hub</strong> e-commerce platform (<code>hubhungry.vercel.app</code> — React, TypeScript, Supabase, Vercel Serverless).</p>
+  <p>Whenever an AI coding agent or engineer is tasked with integrating Omnisend into an e-commerce website, <strong>read this document first</strong>. Adhering to these patterns eliminates HTTP 409/422 conflicts, prevents broken Vercel serverless deployments, ensures accurate email revenue attribution, and guarantees a permanent <strong>100% API sync health rate</strong>.</p>
+
+  <h2>2. Core Architecture & Implemented Pillars</h2>
+  <div class="diagram">┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           Omnisend Integration Pillars                          │
+├─────────────────┬─────────────────┬──────────────────┬────────────────┬─────────┤
+│ 1. Contacts     │ 2. Catalog      │ 3. Abandoned     │ 4. Ecommerce   │ 5. Sales│
+│    Sync         │    Sync         │    Cart Engine   │    Events      │    Rev. │
+│                 │                 │                  │                │         │
+│ • Signup/Login  │ • Categories    │ • 15m inactivity │ • Started      │ • v3/   │
+│ • Phone (E.164) │ • Products      │   detection cron │   Checkout     │   orders│
+│ • Custom tags   │ • Daily 2am cron│ • Recovery links │ • Placed Order │ • Email │
+│ • Opt-in status │ • Idempotent PUT│ • Auto-dismiss   │ • Add to Cart  │   Attrib│
+└─────────────────┴─────────────────┴──────────────────┴────────────────┴─────────┘</div>
+
+  <h3>Pillar 1: Contact Synchronization</h3>
+  <p>Triggered on customer registration or profile updates. Formats phone numbers in strict <strong>E.164</strong> format (e.g., <code>+9779800000000</code>) and sets <code>channels.email.status: "subscribed"</code> with customer segmentation tags.</p>
+
+  <h3>Pillar 2: Store Catalog Synchronization (Products & Categories)</h3>
+  <p>Runs on a daily Vercel Cron at 02:00 UTC. Categories use a GET-first check to prevent duplicates. Products use idempotent <code>PUT /v3/products/{productID}</code>.</p>
+
+  <h3>Pillar 3: Abandoned Cart Recovery Engine</h3>
+  <p>Stores live carts in Supabase <code>abandoned_carts</code>. A cron job checks every 15 minutes for carts inactive &gt;15 minutes and fires Omnisend's <code>added product to cart</code> event with a direct recovery link (<code>/recover-cart?cartId=...</code>). On checkout, the cart is marked <code>recovered</code>.</p>
+
+  <h3>Pillar 4: Ecommerce Event Stream</h3>
+  <p>Tracks user intent via <code>started checkout</code> (when dialog opens) and <code>placed order</code>.</p>
+
+  <h3>Pillar 5: Store Sales & Automation Revenue Attribution</h3>
+  <p>When a customer clicks an email and completes an order, submitting to <code>POST /v3/orders</code> enables Omnisend to attribute the revenue and display <strong>"Sales: NPR"</strong> directly in the automation workflow report.</p>
+
+  <div class="page-break"></div>
+
+  <h2>3. Mistakes Made by Antigravity (Post-Mortem)</h2>
+
+  <h3>Mistake 1: Blind POST to /v3/categories Causing HTTP 409 Conflicts</h3>
+  <p><strong>What happened:</strong> The catalog sync tried to POST categories every day. Because categories like "Desserts" already existed, Omnisend returned <code>HTTP 409 Conflict: Category already exists</code>, dropping the dashboard health score from 100% to 87%.</p>
+  <p><strong>The Fix:</strong> Always run <code>GET /v3/categories</code> first to collect existing IDs into a <code>Set</code>. Only POST categories that do not exist yet.</p>
+
+  <h3>Mistake 2: Product POST vs Direct PUT</h3>
+  <p><strong>What happened:</strong> Calling POST on existing products threw 409 conflicts.</p>
+  <p><strong>The Fix:</strong> Omnisend supports idempotent upsert via <code>PUT /v3/products/{productID}</code>. Always PUT first; only POST if PUT returns 404.</p>
+
+  <h3>Mistake 3: Missing Required Schema Fields</h3>
+  <ul>
+    <li><strong>Products:</strong> Omnisend strictly requires <code>productUrl</code>, variant <code>id</code>, and variant <code>url</code>.</li>
+    <li><strong>Orders (POST /v3/orders):</strong> <code>orderNumber</code> MUST be an <strong>integer (int64)</strong>, NOT a string! <code>createdAt</code> is <strong>mandatory</strong> (ISO 8601 string). Currency fields (<code>orderSum</code>, <code>subTotalSum</code>) MUST be in <strong>integer cents/paisa</strong>.</li>
+  </ul>
+
+  <h3>Mistake 4: Vercel Subdirectory Routing Trap</h3>
+  <p><strong>What happened:</strong> Placing functions in <code>api/omnisend/*.ts</code> resulted in 404s on Vercel production.</p>
+  <p><strong>The Fix:</strong> Maintain flat top-level bridge files (<code>api/omnisend-*.ts</code>) and configure explicit rewrites in <code>vercel.json</code>.</p>
+
+  <h3>Mistake 5: Cross-Directory Imports in Vercel Serverless Functions</h3>
+  <p><strong>What happened:</strong> Importing helper functions across directories into <code>api/</code> broke Vercel's independent lambda bundler (<code>FUNCTION_INVOCATION_FAILED</code>).</p>
+  <p><strong>The Fix:</strong> Inline all fetch routines and database calls directly within the serverless handler.</p>
+
+  <h3>Mistake 6: Disconnected Checkout Trigger in Production</h3>
+  <p><strong>What happened:</strong> On Vercel, the React frontend places orders directly via Supabase RPC, skipping the Express backend. The frontend checkout dialog was never calling the Omnisend order endpoint, leaving Omnisend's automation Sales metric at <code>NPR 0.00</code>.</p>
+  <p><strong>The Fix:</strong> Connect <code>fetch("/api/omnisend/placed-order")</code> fire-and-forget directly inside <code>checkout-dialog.tsx</code> on order success.</p>
+
+  <h2>4. User Misconceptions & Dashboard Realities</h2>
+  <h3>The 3-Day Sliding Window Trap</h3>
+  <p>Omnisend's API Log and Success Rate use a <strong>rolling 72-hour (3-day) sliding window</strong>. Old 409 error logs cannot be deleted manually. Once code is fixed to return 200 OK, you must let the 72-hour window slide forward. The errors naturally age out and the score climbs to 100%.</p>
+
+  <div class="page-break"></div>
+
+  <h2>5. Strict Rules for Future AI Coding Agents</h2>
+
+  <div class="alert alert-caution">
+    <strong>CRITICAL "DO NOT" RULES:</strong>
+    <ul>
+      <li><strong>DO NOT</strong> POST categories without checking <code>GET /v3/categories</code> first.</li>
+      <li><strong>DO NOT</strong> pass strings for <code>orderNumber</code> in <code>POST /v3/orders</code> (must be integer).</li>
+      <li><strong>DO NOT</strong> omit <code>createdAt</code> (ISO timestamp) in order payloads.</li>
+      <li><strong>DO NOT</strong> use cross-directory imports inside Vercel <code>api/</code> functions.</li>
+      <li><strong>DO NOT</strong> make Omnisend API calls blocking during checkout (always fire-and-forget).</li>
+      <li><strong>DO NOT</strong> panic when the health rate doesn't jump to 100% instantly (wait for the 3-day window).</li>
+    </ul>
+  </div>
+
+  <div class="alert alert-tip">
+    <strong>MUST-DO CHECKLIST:</strong>
+    <ul>
+      <li>Always use idempotent upserts (GET-check for categories, PUT for products).</li>
+      <li>Always submit to both <code>POST /v3/orders</code> (Sales reporting) and <code>POST /api/events</code> (workflow triggers).</li>
+      <li>Always format phone numbers to E.164 (e.g. <code>+977...</code>).</li>
+      <li>Always multiply currency by 100 for <code>orderSum</code>, <code>subTotalSum</code>, and product prices in cents/paisa.</li>
+    </ul>
+  </div>
+
+  <h2>6. Canonical Working Code Snippets</h2>
+
+  <h3>A. Category Sync (Idempotent, Zero 409s)</h3>
+  <pre><code>const existingRes = await fetch("https://api.omnisend.com/v3/categories?limit=250", {
+  headers: { "X-API-KEY": apiKey }
+});
+const existingData = await existingRes.json();
+const existingIds = new Set((existingData.categories || []).map((c: any) => String(c.categoryID)));
+
+for (const cat of categoriesToSync) {
+  if (existingIds.has(cat.id)) continue; // Skip existing!
+  await fetch("https://api.omnisend.com/v3/categories", {
+    method: "POST",
+    headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ categoryID: cat.id, title: cat.title })
+  });
+}</code></pre>
+
+  <h3>B. Order & Revenue Attribution Dispatch</h3>
+  <pre><code>const orderSumCents = Math.round(totalPriceRupees * 100);
+const parsedNum = parseInt(orderId.replace(/\D/g, ""), 10);
+const orderNumber = !isNaN(parsedNum) && parsedNum > 0 ? parsedNum : Math.floor(Date.now() / 1000);
+
+await fetch("https://api.omnisend.com/v3/orders", {
+  method: "POST",
+  headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    orderID: String(orderId),
+    orderNumber: orderNumber,            // Must be int64!
+    email: customerEmail,
+    orderSum: orderSumCents,             // In cents/paisa!
+    subTotalSum: orderSumCents,
+    currency: "NPR",
+    paymentStatus: "paid",
+    fulfillmentStatus: "unfulfilled",
+    createdAt: new Date().toISOString(), // REQUIRED!
+    orderUrl: `${siteUrl}/orders`,
+    products: lineItems.map((item) => ({
+      productID: item.id || "1",
+      variantID: item.id || "1",
+      title: item.name,
+      quantity: item.quantity,
+      price: Math.round(item.price * 100) // In cents/paisa!
+    }))
+  })
+});</code></pre>
+
+</body>
+</html>

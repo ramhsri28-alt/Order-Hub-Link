@@ -11,6 +11,58 @@ async function fireOmnisendPlacedOrder(payload: {
 }): Promise<{ success: boolean; status?: number; error?: string }> {
   const apiKey = process.env.OMNISEND_API_KEY;
   if (!apiKey) return { success: false, error: "OMNISEND_API_KEY not set" };
+
+  const parsedOrderNum = parseInt(payload.orderID.replace(/\D/g, ""), 10);
+  const orderNumber = !isNaN(parsedOrderNum) && parsedOrderNum > 0 ? parsedOrderNum : Math.floor(Date.now() / 1000);
+  const orderSumCents = Math.round(payload.totalPrice * 100);
+
+  // 1. Submit official store order to Omnisend v3 Orders API (powers Revenue & Sales reporting)
+  try {
+    const v3OrderBody = {
+      orderID: String(payload.orderID),
+      orderNumber,
+      email: payload.email,
+      orderSum: orderSumCents,
+      subTotalSum: orderSumCents,
+      currency: payload.currency || "NPR",
+      paymentStatus: "paid",
+      fulfillmentStatus: "unfulfilled",
+      createdAt: new Date().toISOString(),
+      orderUrl: "https://hubhungry.vercel.app/orders",
+      products: payload.lineItems.map((item) => ({
+        productID: item.productID || "1",
+        variantID: item.productID || "1",
+        title: item.productTitle,
+        quantity: item.productQuantity || 1,
+        price: Math.round(item.productPrice * 100),
+      })),
+    };
+
+    const v3Res = await fetch("https://api.omnisend.com/v3/orders", {
+      method: "POST",
+      headers: {
+        "X-API-KEY": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(v3OrderBody),
+    });
+
+    if (!v3Res.ok && v3Res.status === 409) {
+      // Idempotently update if already exists
+      await fetch(`https://api.omnisend.com/v3/orders/${encodeURIComponent(payload.orderID)}`, {
+        method: "PUT",
+        headers: {
+          "X-API-KEY": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(v3OrderBody),
+      });
+    }
+  } catch (e: any) {
+    console.warn("[placed-order] Omnisend v3 orders error (non-fatal):", e?.message);
+  }
+
+  // 2. Fire ecommerce event "placed order" to Omnisend Events API (powers workflow triggers)
   try {
     const res = await fetch("https://api.omnisend.com/api/events", {
       method: "POST",
