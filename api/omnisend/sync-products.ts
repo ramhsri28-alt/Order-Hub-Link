@@ -84,13 +84,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ success: false, error: dbErr?.message || "No items returned" });
   }
 
-  // ── 2. Build unique category list ────────────────────────────────────────────
+  // ── 2. Build unique category list & check existing ones ──────────────────────
   const uniqueCategories = [...new Set((items as MenuItem[]).map((i) => i.category))];
-
   const categoryResults: { name: string; status: number; ok: boolean }[] = [];
+  const existingCategoryIDs = new Set<string>();
+
+  try {
+    const listRes = await fetch(`${OMNISEND_BASE}/categories`, {
+      method: "GET",
+      headers: omniHeaders(apiKey),
+    });
+    if (listRes.ok) {
+      const listData = (await listRes.json()) as { categories?: { categoryID: string }[] };
+      (listData.categories || []).forEach((c) => existingCategoryIDs.add(c.categoryID));
+    }
+  } catch (err) {
+    console.warn("[sync-products] Could not list existing categories:", err);
+  }
 
   for (const catName of uniqueCategories) {
     const catId = categoryId(catName);
+    if (existingCategoryIDs.has(catId)) {
+      console.log(`[sync-products] Category "${catName}" (${catId}) already exists — skipping POST.`);
+      categoryResults.push({ name: catName, status: 200, ok: true });
+      continue;
+    }
+
     const catPayload = {
       categoryID: catId,
       title: catName,
@@ -108,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!isOk) {
         console.warn(`[sync-products] Category "${catName}" → HTTP ${catRes.status}:`, catBody);
       } else {
-        console.log(`[sync-products] Category "${catName}" synced/exists (HTTP ${catRes.status})`);
+        console.log(`[sync-products] Category "${catName}" created (HTTP ${catRes.status})`);
       }
 
       categoryResults.push({ name: catName, status: catRes.status, ok: isOk });
