@@ -126,8 +126,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const salePriceRupees = item.discount > 0 ? toRupees(item.price, item.discount) : undefined;
     const productUrl = `${SITE_URL}/#menu`;
 
-    // Omnisend Products API expects at least one variant
+    // Omnisend Products API expects id on top-level, variants, and images
     const productPayload: Record<string, any> = {
+      id: String(item.id),
       productID: String(item.id),
       title: item.name,
       description: item.description || item.name,
@@ -136,15 +137,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       productUrl: productUrl,
       categoryIDs: [categoryId(item.category)],
       status: item.available ? "inStock" : "outOfStock",
+      ...(item.image_url ? { defaultImageUrl: item.image_url } : {}),
       variants: [
         {
+          id: `${item.id}_default`,
           variantID: `${item.id}_default`,
           title: item.name,
           sku: `MENU-${item.id}`,
           status: item.available ? "inStock" : "outOfStock",
           price: priceRupees,
+          url: productUrl,
           ...(salePriceRupees !== undefined && { salePrice: salePriceRupees }),
-          ...(item.image_url ? { imageUrl: item.image_url } : {}),
+          ...(item.image_url ? { imageUrl: item.image_url, defaultImageUrl: item.image_url } : {}),
         },
       ],
     };
@@ -152,6 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (item.image_url) {
       productPayload.images = [
         {
+          id: `img_${item.id}`,
           imageID: `img_${item.id}`,
           url: item.image_url,
           isDefault: true,
