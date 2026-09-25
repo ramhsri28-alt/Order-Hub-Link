@@ -104,14 +104,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const catBody = await catRes.text();
 
-      // 200 = created, 400 can mean "already exists" — both are acceptable
-      if (!catRes.ok && catRes.status !== 400) {
+      const isOk = catRes.ok || catRes.status === 400 || catRes.status === 409;
+      if (!isOk) {
         console.warn(`[sync-products] Category "${catName}" → HTTP ${catRes.status}:`, catBody);
       } else {
-        console.log(`[sync-products] Category "${catName}" synced (HTTP ${catRes.status})`);
+        console.log(`[sync-products] Category "${catName}" synced/exists (HTTP ${catRes.status})`);
       }
 
-      categoryResults.push({ name: catName, status: catRes.status, ok: catRes.ok || catRes.status === 400 });
+      categoryResults.push({ name: catName, status: catRes.status, ok: isOk });
     } catch (err: any) {
       console.error(`[sync-products] Category "${catName}" network error:`, err?.message);
       categoryResults.push({ name: catName, status: 0, ok: false });
@@ -133,6 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       description: item.description || item.name,
       currency: "NPR",
       url: productUrl,
+      productUrl: productUrl,
       categoryIDs: [categoryId(item.category)],
       status: item.available ? "inStock" : "outOfStock",
       variants: [
