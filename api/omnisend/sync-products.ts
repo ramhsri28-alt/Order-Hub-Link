@@ -90,8 +90,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const categoryResults: { name: string; status: number; ok: boolean }[] = [];
 
   for (const catName of uniqueCategories) {
+    const catId = categoryId(catName);
     const catPayload = {
-      categoryID: categoryId(catName),
+      categoryID: catId,
       title: catName,
     };
 
@@ -103,8 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       const catBody = await catRes.text();
-
-      const isOk = catRes.ok || catRes.status === 400 || catRes.status === 409;
+      const isOk = catRes.ok || catRes.status === 409;
       if (!isOk) {
         console.warn(`[sync-products] Category "${catName}" → HTTP ${catRes.status}:`, catBody);
       } else {
@@ -165,17 +165,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-      // Try POST first; if 409 Conflict (already exists), do PUT
-      let prodRes = await fetch(`${OMNISEND_BASE}/products`, {
-        method: "POST",
+      // Use PUT first so existing products return 200 OK directly without a 409 Conflict error log
+      let prodRes = await fetch(`${OMNISEND_BASE}/products/${item.id}`, {
+        method: "PUT",
         headers: omniHeaders(apiKey),
         body: JSON.stringify(productPayload),
       });
 
-      if (prodRes.status === 409) {
-        // Product exists — update it
-        prodRes = await fetch(`${OMNISEND_BASE}/products/${item.id}`, {
-          method: "PUT",
+      if (prodRes.status === 404) {
+        prodRes = await fetch(`${OMNISEND_BASE}/products`, {
+          method: "POST",
           headers: omniHeaders(apiKey),
           body: JSON.stringify(productPayload),
         });
