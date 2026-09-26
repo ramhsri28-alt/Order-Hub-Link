@@ -175,7 +175,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await fetch("https://api.omnisend.com/v3/contacts", {
             method: "POST",
             headers: {
-              "X-API-KEY": omnisendApiKey,
+              Authorization: `Omnisend-API-Key ${omnisendApiKey}`,
+              "Omnisend-Version": "2026-03-15",
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -210,7 +211,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const cartApiRes = await fetch("https://api.omnisend.com/v3/carts", {
             method: "POST",
             headers: {
-              "X-API-KEY": omnisendApiKey,
+              Authorization: `Omnisend-API-Key ${omnisendApiKey}`,
+              "Omnisend-Version": "2026-03-15",
               "Content-Type": "application/json",
             },
             body: JSON.stringify(omnisendCartPayload),
@@ -265,7 +267,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const eventRes = await fetch("https://api.omnisend.com/v3/events", {
             method: "POST",
             headers: {
-              "X-API-KEY": omnisendApiKey,
+              Authorization: `Omnisend-API-Key ${omnisendApiKey}`,
+              "Omnisend-Version": "2026-03-15",
               "Content-Type": "application/json",
             },
             body: JSON.stringify(eventPayload),

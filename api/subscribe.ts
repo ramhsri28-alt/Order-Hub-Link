@@ -70,7 +70,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const response = await fetch("https://api.omnisend.com/v3/contacts", {
       method: "POST",
       headers: {
-        "X-API-KEY": apiKey,
+        Authorization: `Omnisend-API-Key ${apiKey}`,
+        "Omnisend-Version": "2026-03-15",
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
