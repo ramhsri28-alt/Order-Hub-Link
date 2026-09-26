@@ -68,14 +68,15 @@ export async function sendOmnisendFirstLoginEvent(
     if (firstName) contactPayload.firstName = firstName;
     if (lastName) contactPayload.lastName = lastName;
 
-    const contactRes = await fetch("https://api.omnisend.com/v3/contacts", {
-      method: "POST",
-      headers: {
-        "X-API-KEY": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(contactPayload),
-    });
+     const contactRes = await fetch("https://api.omnisend.com/v3/contacts", {
+       method: "POST",
+       headers: {
+         Authorization: `Omnisend-API-Key ${apiKey}`,
+         "Omnisend-Version": "2026-03-15",
+         "Content-Type": "application/json",
+       },
+       body: JSON.stringify(contactPayload),
+     });
 
     if (!contactRes.ok) {
       const errText = await contactRes.text();
@@ -108,13 +109,14 @@ export async function sendOmnisendFirstLoginEvent(
     }
 
     const eventRes = await fetch("https://api.omnisend.com/v3/events", {
-      method: "POST",
-      headers: {
-        "X-API-KEY": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(eventPayload),
-    });
+       method: "POST",
+       headers: {
+         Authorization: `Omnisend-API-Key ${apiKey}`,
+         "Omnisend-Version": "2026-03-15",
+         "Content-Type": "application/json",
+       },
+       body: JSON.stringify(eventPayload),
+     });
 
     if (!eventRes.ok) {
       const errorData = await eventRes.text();
