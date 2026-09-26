@@ -38,26 +38,28 @@ async function fireOmnisendPlacedOrder(payload: {
       })),
     };
 
-    const v3Res = await fetch("https://api.omnisend.com/v3/orders", {
-      method: "POST",
-      headers: {
-        "X-API-KEY": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(v3OrderBody),
-    });
+     const v3Res = await fetch("https://api.omnisend.com/v3/orders", {
+       method: "POST",
+       headers: {
+         Authorization: `Omnisend-API-Key ${apiKey}`,
+         "Omnisend-Version": "2026-03-15",
+         "Content-Type": "application/json",
+       },
+       body: JSON.stringify(v3OrderBody),
+     });
 
-    if (!v3Res.ok && v3Res.status === 409) {
-      // Idempotently update if already exists
-      await fetch(`https://api.omnisend.com/v3/orders/${encodeURIComponent(payload.orderID)}`, {
-        method: "PUT",
-        headers: {
-          "X-API-KEY": apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(v3OrderBody),
-      });
-    }
+     if (!v3Res.ok && v3Res.status === 409) {
+       // Idempotently update if already exists
+       await fetch(`https://api.omnisend.com/v3/orders/${encodeURIComponent(payload.orderID)}`, {
+         method: "PUT",
+         headers: {
+           Authorization: `Omnisend-API-Key ${apiKey}`,
+           "Omnisend-Version": "2026-03-15",
+           "Content-Type": "application/json",
+         },
+         body: JSON.stringify(v3OrderBody),
+       });
+     }
   } catch (e: any) {
     console.warn("[placed-order] Omnisend v3 orders error (non-fatal):", e?.message);
   }
